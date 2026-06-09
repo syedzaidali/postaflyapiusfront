@@ -7,6 +7,7 @@ import './assets/css/responsive.css';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 import ProtectedRoute from "./utils/ProtectedRoute";
+import TemplatesRoute from "./utils/TemplatesRoute";
 import { ADMIN_ROUTE_PREFIX } from "./constants/DomainRoutes";
 import Notfound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
@@ -16,7 +17,6 @@ import Dashboard from "./pages/Dashboard";
 import Leads from "./pages/Leads";
 import Leadgroups from "./pages/Leadgroups";
 import Campaigns from "./pages/Campaigns";
-import Templates from "./pages/Templates";
 import SendersProfile from "./pages/SendersProfile";
 import TransactionalEmails from "./pages/TransactionalEmails";
 import AllEmailLogs from "./pages/AllEmailLogs";
@@ -95,29 +95,27 @@ function App() {
 
                         <Route path="/leads" element={
                             <ProtectedRoute
-                            element={<Leads />}
-                            allowedRoles={['admin', 'manager']}
+                                element={<Leads />}
+                                allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['leads.view']}
                             />
                         } />
 
                         <Route path="/leads/groups" element={
                             <ProtectedRoute
-                            element={<Leadgroups />}
-                            allowedRoles={['admin', 'manager']}
+                                element={<Leadgroups />}
+                                allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['leads.view']}
                             />
                         } />
 
-                        <Route path="/templates/:type" element={
-                            <ProtectedRoute
-                            element={<Templates />}
-                            allowedRoles={['admin', 'manager']}
-                            />
-                        } />
+                        <Route path="/templates/:type" element={<TemplatesRoute />} />
 
                         <Route path="/campaigns" element={
                             <ProtectedRoute
                                 element={<Campaigns />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['campaigns.view']}
                             />
                         } />
 
@@ -125,6 +123,7 @@ function App() {
                             <ProtectedRoute
                                 element={<SendersProfile />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['providers.view']}
                             />
                         } />
 
@@ -132,21 +131,23 @@ function App() {
                             <ProtectedRoute
                                 element={<TransactionalEmails />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['transaction_email.view']}
                             />
                         } />
 
-                       <Route 
-                        path="/transactional-emails-logs" 
-                        element={<AllEmailLogs />} 
-                        />
-
-                        {/* <Route path="/transactional-emails-logs" element={<h1>Test Page</h1>} /> */}
-
+                        <Route path="/transactional-emails-logs" element={
+                            <ProtectedRoute
+                                element={<AllEmailLogs />}
+                                allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['transaction_email.view']}
+                            />
+                        } />
 
                         <Route path="/transactional-emails/batch-downloads" element={
                             <ProtectedRoute
                                 element={<BatchDownloads />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['transaction_email.view']}
                             />
                         } />
 
@@ -154,6 +155,7 @@ function App() {
                             <ProtectedRoute
                                 element={<InvoiceTemplates />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['invoice_themes.view']}
                             />
                         } />
 
@@ -161,6 +163,7 @@ function App() {
                             <ProtectedRoute
                                 element={<InvoiceHistory />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['transaction_email.view']}
                             />
                         } />
 
@@ -168,6 +171,7 @@ function App() {
                             <ProtectedRoute
                                 element={<InvoicePreview />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['transaction_email.view']}
                             />
                         } />
 
@@ -175,6 +179,7 @@ function App() {
                             <ProtectedRoute
                                 element={<Patients />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['transaction_email.view']}
                             />
                         } />
 
@@ -182,20 +187,23 @@ function App() {
                             <ProtectedRoute
                                 element={<PatientProfile />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['transaction_email.view']}
                             />
-                        } />     
+                        } />
 
-                        <Route path="/patients/invoices/:patient_id" element={ 
+                        <Route path="/patients/invoices/:patient_id" element={
                             <ProtectedRoute
                                 element={<InvoiceHistory />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['transaction_email.view']}
                             />
-                        } />                     
+                        } />
 
                         <Route path="/users" element={
                             <ProtectedRoute
                                 element={<Users />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['users.view']}
                             />
                         } />
 
@@ -251,7 +259,8 @@ function App() {
                         <Route path="/reports" element={
                             <ProtectedRoute
                                 element={<EmailLogs />}
-                                allowedRoles={['admin']}
+                                allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['reports.view']}
                             />
                         } />                        
                     </>

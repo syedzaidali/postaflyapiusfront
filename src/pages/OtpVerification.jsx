@@ -111,7 +111,7 @@ const OtpVerification = () => {
                 if(isLogin == 1) {
                     localStorage.setItem('auth_token', data.data.access_token);
                     localStorage.setItem('user_role', data.data.role);
-                    localStorage.setItem('user_permissions', data.data.permissions);
+                    localStorage.setItem('user_permissions', JSON.stringify(data.data.permissions ?? {}));
                     localStorage.setItem('name', data.data.name);
                     localStorage.setItem('email', data.data.email);
                     localStorage.setItem('username', data.data.username);

@@ -51,6 +51,7 @@ const SystemUsers = () => {
     const [showUserCreateForm, setUserCreateForm] = useState(false);
     const [editUserForm, setEditUserForm] = useState(false);
     const [permissionsData, setPermissionsData] = useState({});
+    const [roleOptions, setRoleOptions] = useState([]);
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [showEditForm, setshowEditForm] = useState(false);
     
@@ -182,20 +183,17 @@ const SystemUsers = () => {
     };
 
     const isFormValid = () => {
+        const baseValid = formData.name?.trim() && formData.username?.trim() && formData.email?.trim() && formData.role;
+
+        if (editUserForm) {
+            return !!baseValid;
+        }
+
         const rules = checkPasswordRules(password);
         const passwordValid = Object.values(rules).every(Boolean);
         const passwordsMatch = password === passwordConfirm;
 
-        return (
-            name.trim() !== "" &&
-            username.trim() !== "" &&
-            email.trim() !== "" &&
-            accountType !== "" &&
-            password !== "" &&
-            passwordConfirm !== "" &&
-            passwordValid &&
-            passwordsMatch
-        );
+        return baseValid && password && passwordConfirm && passwordValid && passwordsMatch;
     };
 
     const handleChange = (e) => {
@@ -334,7 +332,8 @@ const SystemUsers = () => {
             const result = await response.json();
             
             if (response.ok) {
-                setPermissionsData(result.data);
+                setPermissionsData(result.data || {});
+                setRoleOptions(result.roles || []);
             } else {
                 console.error("Error fetching screens:", result.message);
             }
@@ -410,17 +409,30 @@ const SystemUsers = () => {
     /*
      * Edit user form & process user update 
      */
+    const parsePermissions = (permissions) => {
+        if (!permissions) return {};
+        if (typeof permissions === 'string') {
+            try {
+                return JSON.parse(permissions);
+            } catch {
+                return {};
+            }
+        }
+        return permissions;
+    };
+
     const handleUserEditForm = (user) => {
-        const permissions = JSON.parse(user.permissions);
-
         setFormData({
-            name: user.name,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            permissions: permissions
-        }); 
-
+            name: user.name || "",
+            username: user.username || "",
+            email: user.email || "",
+            password: "",
+            confirmPassword: "",
+            role: user.role || "agent",
+            permissions: parsePermissions(user.permissions),
+        });
+        setPassword("");
+        setPasswordConfirm("");
         createUserFormDisplay();
         setEditUserForm(true);
         setUserID(user.id);
@@ -550,7 +562,7 @@ const SystemUsers = () => {
                                     <tr>
                                         <th scope="col">Name</th>
                                         <th scope="col">Email</th>
-                                        <th scope="col">Account Type</th>
+                                        <th scope="col">Role</th>
                                         <th scope="col">Date Created</th>
                                         <th scope="col">Status</th>
                                         <th scope="col">Action</th>
@@ -571,11 +583,7 @@ const SystemUsers = () => {
                                                 </div>
                                             </td>
                                             <td className="f-w-500">{user.email}</td>
-                                            <td>
-                                                {user.account_type === 'transaction_email'
-                                                    ? 'Transaction Email'
-                                                    : 'Email Marketing'}
-                                            </td>
+                                            <td className="text-capitalize">{user.role?.replace('_', ' ')}</td>
                                             <td>{new Date(user.created_at).toLocaleDateString()}</td>
                                             <td>
                                                 <span
@@ -792,8 +800,12 @@ const SystemUsers = () => {
                                                                 onChange={handleChange}
                                                                 required
                                                             >
-                                                                <option value="super_admin">Admin</option>
-                                                                <option value="agent">Agent</option>
+                                                                {(roleOptions.length ? roleOptions : [
+                                                                    { value: 'super_admin', label: 'Super Admin' },
+                                                                    { value: 'agent', label: 'Agent' },
+                                                                ]).map((role) => (
+                                                                    <option key={role.value} value={role.value}>{role.label}</option>
+                                                                ))}
                                                             </select>
                                                         </div>
                                                     </div>

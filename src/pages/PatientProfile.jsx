@@ -736,7 +736,7 @@ const PatientProfile = () => {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => {
-                                                                fetch(`https://api.postafly.com/api/v1/invoice/preview/${invoice.cs_invoiceId}`)
+                                                                fetch(apiRoutes.invoicePreview(invoice.cs_invoiceId))
                                                                     .then(res => res.blob())
                                                                     .then(blob => {
                                                                         const url = window.URL.createObjectURL(blob);

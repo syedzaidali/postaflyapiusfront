@@ -1,13 +1,13 @@
-// const BASE_URL = "http://192.168.18.64:8000/api/v1";
-const BASE_URL = 'http://localhost:8000/api/v1';
-// // const BASE_URL = 'https://api.postafly.com/api/v1';
+import { API_ORIGIN, API_V1_BASE_URL } from '../../config/api';
+
+const BASE_URL = API_V1_BASE_URL;
 
 const apiRoutes = {
     base_url: BASE_URL,
-// const BASE_URL = 'https://api.postafly.com/api/v1';
-
-// const apiRoutes = {
-//     base_url: 'https://api.postafly.com',
+    origin: API_ORIGIN,
+    invoiceThemePreview: (id) => `${API_ORIGIN}/invoice-theme/${id}`,
+    invoicePreview: (id) => `${BASE_URL}/invoice/preview/${id}`,
+    transactionalTemplatePreview: (id) => `${BASE_URL}/transactional-template/preview/${id}`,
     register: `${BASE_URL}/register`,
     verifyOtp: `${BASE_URL}/otp-verification`,
     resendOtp: `${BASE_URL}/resend-otp`,
@@ -63,8 +63,10 @@ const apiRoutes = {
     statusCheck: `${BASE_URL}/providers/statusCheck`,
     getAllInvoiceThemes: `${BASE_URL}/invoice-themes`,
     getAllUsers: `${BASE_URL}/users`,
+    getUserById: (id) => `${BASE_URL}/users/${id}`,
     getUserPermissions: `${BASE_URL}/users/permissions`,
     createUser: `${BASE_URL}/users/create`,
+    deleteUser: `${BASE_URL}/users/delete`,
     getAllPatients: `${BASE_URL}/patients`,
     getPatientById: `${BASE_URL}/patients/profile`,
     getPatientInvoices: `${BASE_URL}/patients/{id}/invoices`,

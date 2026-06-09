@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import apiRoutes from '../routes/api/apiRoutes';
 
 function InvoicePreview() {
     const { invoiceId } = useParams();
@@ -6,7 +7,7 @@ function InvoicePreview() {
     return (
         <div style={{ height: '100vh' }}>
             <iframe
-                src={`https://api.postafly.com/api/v1/invoice/preview/${invoiceId}`}
+                src={apiRoutes.invoicePreview(invoiceId)}
                 width="100%"
                 height="100%"
                 style={{ border: 'none' }}

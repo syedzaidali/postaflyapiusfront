@@ -96,6 +96,7 @@ const TransactionalEmails = () => {
     const [isProviderSelected, setIsProviderSelected] = useState(false);
     const [displayPreview, setDisplayPreview] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(false);
+    const [previewLoading, setPreviewLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [perPage, setPerPage] = useState(15);
@@ -297,7 +298,45 @@ const TransactionalEmails = () => {
         setDisplayPreview(false);
     }
 
-    const invoiceTemplatePreview = async () => {
+    const setPreviewBlobUrl = (blob) => {
+        if (previewUrl && typeof previewUrl === 'string' && previewUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(previewUrl);
+        }
+        setPreviewUrl(URL.createObjectURL(blob));
+        setDisplayPreview(true);
+    };
+
+    const fetchSavedTemplatePreview = async (templateId) => {
+        setPreviewLoading(true);
+        try {
+            const res = await fetch(apiRoutes.transactionalTemplatePreview(templateId));
+            if (!res.ok) {
+                throw new Error(`Error: ${res.status} ${res.statusText}`);
+            }
+            setPreviewBlobUrl(await res.blob());
+        } catch (err) {
+            console.error("Failed to load invoice preview:", err);
+            alert("Invoice preview failed. Please check provider, theme, and backend logs.");
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
+
+    const invoiceTemplatePreview = async (e) => {
+        if (e?.preventDefault) {
+            e.preventDefault();
+        }
+
+        if (!formData.provider_id) {
+            alert("Please select a provider before previewing the invoice.");
+            return;
+        }
+
+        if (!selectedThemeId) {
+            alert("Please select an invoice theme before previewing.");
+            return;
+        }
+
         const payload = {
             invoice_theme_id: selectedThemeId,
             provider_id: formData.provider_id,
@@ -312,6 +351,7 @@ const TransactionalEmails = () => {
             info_text_2: formData.info_text_2,
         };
 
+        setPreviewLoading(true);
         try {
             const res = await fetch(apiRoutes.previewTransactionTemplateInvoice, {
                 method: "POST",
@@ -323,16 +363,16 @@ const TransactionalEmails = () => {
             });
 
             if (!res.ok) {
-                throw new Error(`Error: ${res.status} ${res.statusText}`);
+                const errorData = await res.json().catch(() => null);
+                throw new Error(errorData?.message || `Error: ${res.status} ${res.statusText}`);
             }
 
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-
-            setPreviewUrl(url);
-            setDisplayPreview(true);
+            setPreviewBlobUrl(await res.blob());
         } catch (err) {
             console.error("Failed to load invoice preview:", err);
+            alert(err.message || "Invoice preview failed. PDF generation can take up to 30 seconds on local WAMP.");
+        } finally {
+            setPreviewLoading(false);
         }
     }
     
@@ -622,8 +662,7 @@ const TransactionalEmails = () => {
                 );
                 setSelectedThemeId(selectedTemplate.invoice_theme_id);
                 setSelectedTheme(theme);
-                setPreviewUrl('https://api.postafly.com/api/v1/transactional-template/preview/' + selectedId);
-                setDisplayPreview(true);
+                await fetchSavedTemplatePreview(selectedId);
             } else {
                 alert(result.message || "Failed to create contact.");
             }
@@ -859,120 +898,91 @@ const TransactionalEmails = () => {
         }
     }
 
-    useEffect(() => {
+    const handleImportComplete = useCallback(() => {
+        setImportStatus('completed');
+        setShowSuccessMessage(true);
+        setIsPolling(false);
+        fetchTransactionalEmails(currentPage, searchQuery);
+
+        setTimeout(() => {
+            setShowSuccessMessage(false);
+        }, 10000);
+    }, [currentPage, searchQuery]);
+
+    const applyImportStatusUpdate = useCallback((res) => {
+        if (!res?.status) return;
+
+        if (res.status === 'completed') {
+            handleImportComplete();
+            return;
+        }
+
+        if (res.status === 'failed' || res.status === 'header_mismatch') {
+            setImportStatus(res.status);
+            setIsPolling(false);
+            return;
+        }
+
+        setImportStatus(res.status);
+
+        if (res.total_customers !== undefined) {
+            setTotalCustomers(res.total_customers);
+        }
+
+        if (res.completed_jobs !== undefined && res.total_jobs !== undefined) {
+            setJobsCount([res.completed_jobs, res.total_jobs]);
+        }
+    }, [handleImportComplete]);
+
+    const pollImportStatusOnce = useCallback(async () => {
         if (!importId) return;
 
+        const response = await fetch(apiRoutes.transactionalEmailStatus, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify({ importId }),
+        });
+
+        const res = await response.json();
+        if (response.ok) {
+            applyImportStatusUpdate(res);
+        }
+    }, [importId, token, applyImportStatusUpdate]);
+
+    useEffect(() => {
+        if (!importId || !userId) return;
+
         const importStatusRef = ref(database, `transaction_status/${importId}/${userId}`);
-        
+
         const unsubscribe = onValue(importStatusRef, (snapshot) => {
             const res = snapshot.val();
-
             if (!res) return;
-
-            if (res.status === 'completed') {
-                setImportStatus('success');
-                setShowSuccessMessage(true);
-                fetchTransactionalEmails(1, searchQuery); // you'll need to define searchQuery
-
-                setTimeout(() => {
-                    setShowSuccessMessage(false);
-                }, 10000);
-            } else if (res.status === 'parsing_complete') {
-                setImportStatus(res.status);
-                setTotalCustomers(res.total_customers);
-            } else if ([
-                'processing',
-                'inserting_rows',
-                'grouping_customers',
-                'grouping_complete',
-                'initializing_process',
-                'processing_invoices'
-            ].includes(res.status)) {
-                setImportStatus(res.status);
-                setIsPolling(true);
-            } else if (res.status === 'failed') {
-                setImportStatus('failed');
-            }
+            applyImportStatusUpdate(res);
         });
 
         return () => {
             off(importStatusRef);
             unsubscribe();
         };
-    }, [importId, userId]);
-
-    const importStatusRef = useRef(importStatus);
+    }, [importId, userId, applyImportStatusUpdate]);
 
     useEffect(() => {
-        importStatusRef.current = importStatus;
-    }, [importStatus]);
+        if (!importId || !isPolling) return;
 
+        pollImportStatusOnce();
 
-    const pollImportStatus = useCallback(() => {
-        const interval = setInterval(async () => {
-            try {
-                const headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`,
-                };
-
-                const body = {
-                    importId: importId,
-                };
-                
-                const response = await fetch(apiRoutes.transactionalEmailStatus, {
-                    method: "POST",
-                    headers: headers,
-                    body: JSON.stringify(body), 
-                });
-    
-                const res = await response.json();
-
-                if (res.status === 'completed') {
-                    clearInterval(interval);
-                    setIsPolling(false);            
-                } else if ([
-                'initializing_process', 'grouping_complete', 'processing_invoices'
-                    ].includes(importStatusRef.current)) {
-                    setJobsCount([res.completed_jobs, res.total_jobs]);
-                }
-            } catch (err) {
-                clearInterval(interval);
+        const interval = setInterval(() => {
+            pollImportStatusOnce().catch(() => {
                 setImportStatus('error');
                 setIsPolling(false);
-            }
-        }, 5000); 
-      
-        return () => clearInterval(interval);
-    }, [token, importId]);
-    
-    
-    useEffect(() => {
-        if ([
-                'initializing_process', 'grouping_complete', 'processing_invoices'
-            ].includes(importStatus) && !isPolling) {
-            setIsPolling(true);
-            const cleanup = pollImportStatus();
-        
-            return () => {
-                cleanup();
-                setIsPolling(false);
-            };
-        }
-      
-        if (![
-                'initializing_process', 'grouping_complete', 'processing_invoices'
-            ].includes(importStatus) && isPolling) {
-            setIsPolling(false);
-        }
-    }, [importStatus, isPolling, pollImportStatus]);
+            });
+        }, 5000);
 
-    useEffect(() => {
-        if (isPolling) {
-            const cleanup = pollImportStatus();
-            return cleanup;
-        }
-    }, [isPolling, pollImportStatus]);
+        return () => clearInterval(interval);
+    }, [importId, isPolling, pollImportStatusOnce]);
 
     const handleCheckboxChange = (id, isChecked) => {
         setSelectedTransactions((prev) => 
@@ -1161,7 +1171,7 @@ const TransactionalEmails = () => {
                                             <td>
                                             <span className="badge text-light-primary">
                                             <a
-                                                href={`https://api.postafly.com/invoice-theme/${email.customer_invoice[0].invoice_template_id}`}
+                                                href={apiRoutes.invoiceThemePreview(email.customer_invoice[0].invoice_template_id)}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                             >
@@ -1274,7 +1284,7 @@ const TransactionalEmails = () => {
                                                     </div>
                                                 </a>
 
-                                                <a href={theme.preview_image} className="btn btn-primary b-r-22 btn-sm" target="_blank">Preview</a>
+                                                <a href={apiRoutes.invoiceThemePreview(theme.id)} className="btn btn-primary b-r-22 btn-sm" target="_blank" rel="noopener noreferrer">Preview</a>
                                             </div>
                                         ))}
                                     </div>
@@ -1356,15 +1366,22 @@ const TransactionalEmails = () => {
                                                                 >Modify Template</a>
                                                             </div>
 
-                                                                <div style={{ height: '600px', marginBottom: '20px' }}>
-                                                                    <iframe
-                                                                        id="previewTemplate"
-                                                                        src={previewUrl}
-                                                                        width="100%"
-                                                                        height="100%"
-                                                                        style={{ border: 'none' }}
-                                                                        title="Invoice Preview"
-                                                                    />
+                                                                <div style={{ height: '600px', marginBottom: '20px', position: 'relative' }}>
+                                                                    {previewLoading && (
+                                                                        <div className="d-flex align-items-center justify-content-center h-100">
+                                                                            <p className="mb-0">Generating invoice preview... this may take 10-30 seconds.</p>
+                                                                        </div>
+                                                                    )}
+                                                                    {!previewLoading && previewUrl && (
+                                                                        <iframe
+                                                                            id="previewTemplate"
+                                                                            src={previewUrl}
+                                                                            width="100%"
+                                                                            height="100%"
+                                                                            style={{ border: 'none' }}
+                                                                            title="Invoice Preview"
+                                                                        />
+                                                                    )}
                                                                 </div>
                                                         </>
                                                     )}
@@ -1612,7 +1629,7 @@ const TransactionalEmails = () => {
                                                                             href="#"
                                                                             onClick={invoiceTemplatePreview}
                                                                             className="btn btn-primary b-r-22"
-                                                                        >Preview Invoice</a>
+                                                                        >{previewLoading ? 'Generating Preview...' : 'Preview Invoice'}</a>
                                                                     </div>
 
                                                                     <hr />

@@ -83,7 +83,7 @@ const InvoiceTemplates = () => {
                                 </a>
 
                                 <a
-                                    href={`https://api.postafly.com/invoice-theme/${template.id}`}
+                                    href={apiRoutes.invoiceThemePreview(template.id)}
                                     className="btn btn-primary"
                                     target="_blank"
                                     rel="noopener noreferrer"

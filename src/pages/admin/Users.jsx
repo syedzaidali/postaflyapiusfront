@@ -309,10 +309,14 @@ const Users = () => {
             name,
             username,
             email,
-            password,
-            password_confirmation: passwordConfirm,
             account_type: accountType,
             invoice_option: accountType === "transaction_email" ? invoiceOption : null,
+            ...(userID ? { userID } : {}),
+            ...(!userID || password ? {
+                password,
+                password_confirmation: passwordConfirm,
+                confirmPassword: passwordConfirm,
+            } : {}),
         };
         
         try {
@@ -325,7 +329,7 @@ const Users = () => {
             const result = await response.json();
 
             if (response.ok) {
-                setMessageText("User created successfully!");
+                setMessageText(userID ? "User updated successfully!" : "User created successfully!");
 
                 setTimeout(() => {
                     setDisplayMessageSuccess(false);
@@ -357,19 +361,16 @@ const Users = () => {
      * Edit user form & process user update 
      */
     const handleUserEditForm = (user) => {
-        const permissions = JSON.parse(user.permissions);
-
-        setFormData({
-            name: user.name,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            permissions: permissions
-        }); 
-
-        createUserFormDisplay();
-        setEditUserForm(true);
+        setName(user.name || "");
+        setUsername(user.username || "");
+        setEmail(user.email || "");
+        setAccountType(user.account_type || "");
+        setInvoiceOption(user.invoice_management || "");
+        setPassword("");
+        setPasswordConfirm("");
         setUserID(user.id);
+        setEditUserForm(true);
+        createUserFormDisplay();
     };
 
     /*
