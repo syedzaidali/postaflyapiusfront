@@ -1171,7 +1171,7 @@ const TransactionalEmails = () => {
                                             <td>
                                             <span className="badge text-light-primary">
                                             <a
-                                                href={apiRoutes.invoiceThemePreview(email.customer_invoice[0].invoice_template_id)}
+                                                href={apiRoutes.invoiceThemePreview(email.customer_invoice[0].invoice_template_id, email.provider_id)}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                             >
@@ -1284,7 +1284,7 @@ const TransactionalEmails = () => {
                                                     </div>
                                                 </a>
 
-                                                <a href={apiRoutes.invoiceThemePreview(theme.id)} className="btn btn-primary b-r-22 btn-sm" target="_blank" rel="noopener noreferrer">Preview</a>
+                                                <a href={apiRoutes.invoiceThemePreview(theme.id, formData.provider_id)} className="btn btn-primary b-r-22 btn-sm" target="_blank" rel="noopener noreferrer">Preview</a>
                                             </div>
                                         ))}
                                     </div>

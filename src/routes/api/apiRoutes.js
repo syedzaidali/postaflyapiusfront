@@ -5,7 +5,10 @@ const BASE_URL = API_V1_BASE_URL;
 const apiRoutes = {
     base_url: BASE_URL,
     origin: API_ORIGIN,
-    invoiceThemePreview: (id) => `${API_ORIGIN}/invoice-theme/${id}`,
+    invoiceThemePreview: (id, providerId) => {
+        const url = `${API_ORIGIN}/invoice-theme/${id}`;
+        return providerId ? `${url}?provider_id=${providerId}` : url;
+    },
     invoicePreview: (id) => `${BASE_URL}/invoice/preview/${id}`,
     transactionalTemplatePreview: (id) => `${BASE_URL}/transactional-template/preview/${id}`,
     register: `${BASE_URL}/register`,

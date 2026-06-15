@@ -1,5 +1,5 @@
-const APP_DOMAIN         = "http://localhost:8000";
-// const APP_DOMAIN         = "https://app.postafly.com";
+// const APP_DOMAIN         = "http://localhost:8000";
+const APP_DOMAIN         = "https://app.postafly.com";
 const ADMIN_DOMAIN       = "https://admin.postafly.com";
 const LOCAL_DOMAIN       = 'https://localhost:5173';
 const LOCAL_ADMIN_DOMAIN = 'https://localhost:5173';
