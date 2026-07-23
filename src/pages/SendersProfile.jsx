@@ -34,12 +34,20 @@ const SendersProfile = () => {
         payment_url: "",
         status: "",
         logo: null,        
-        qr_code: null
+        qr_code: null,
+        fbr_enabled: false,
+        fbr_ntn: "",
+        fbr_strn: "",
+        fbr_province: "",
+        fbr_token: "",
+        fbr_environment: "sandbox",
     }
 
     const [providerId, setProviderId] = useState("");
     const [logoPreview, setLogoPreview] = useState(null);
     const [qrCodePreview, setqrCodePreview] = useState(null);
+    const [fbrTestLoading, setFbrTestLoading] = useState(false);
+    const [hasFbrToken, setHasFbrToken] = useState(false);
 
     //Initilize Constants
     const [addActiveClass, setAddActiveClass]   = useState(false);
@@ -176,9 +184,16 @@ const SendersProfile = () => {
             billing_address_1: provider.billing_address_1 ||  "",
             billing_address_2: provider.billing_address_2 || "",
             payment_url: provider.payment_link || "",
-            status: provider.status || ""
+            status: provider.status || "",
+            fbr_enabled: !!provider.fbr_enabled,
+            fbr_ntn: provider.fbr_ntn || "",
+            fbr_strn: provider.fbr_strn || "",
+            fbr_province: provider.fbr_province || "",
+            fbr_token: "",
+            fbr_environment: provider.fbr_environment || "sandbox",
         }); 
 
+        setHasFbrToken(!!provider.has_fbr_token);
         setLogoPreview(provider.logo_url);
         setqrCodePreview(provider.qr_code_url);
         
@@ -242,6 +257,38 @@ const SendersProfile = () => {
         setResendLoadingMap(prev => ({ ...prev, [providerId]: false }))
         }
     }
+
+    const handleFbrSandboxTest = async () => {
+        if (!providerId) {
+            alert("Save the provider first, then run the FBR sandbox test.");
+            return;
+        }
+        if (!formData.fbr_ntn || (!formData.fbr_token && !hasFbrToken)) {
+            alert("Enter FBR NTN and sandbox token before testing.");
+            return;
+        }
+
+        setFbrTestLoading(true);
+        try {
+            const response = await axios.post(
+                apiRoutes.testProviderFbr(providerId),
+                { scenario_id: "SN001" },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            const invoiceNo = response.data?.post?.invoice_number;
+            alert(
+                invoiceNo
+                    ? `FBR sandbox OK. Invoice number: ${invoiceNo}`
+                    : (response.data?.message || "FBR test finished. Check response in Network tab / logs.")
+            );
+        } catch (error) {
+            console.error(error);
+            alert(error.response?.data?.message || "FBR sandbox test failed.");
+        } finally {
+            setFbrTestLoading(false);
+        }
+    }
+
     /*
      * Api calls 
      */
@@ -292,6 +339,14 @@ const SendersProfile = () => {
             formDataToSend.append("billing_address_1", formData.billing_address_1 || "");
             formDataToSend.append("billing_address_2", formData.billing_address_2 || "");
             formDataToSend.append("payment_url", formData.payment_url || "");
+            formDataToSend.append("fbr_enabled", formData.fbr_enabled ? "1" : "0");
+            formDataToSend.append("fbr_ntn", formData.fbr_ntn || "");
+            formDataToSend.append("fbr_strn", formData.fbr_strn || "");
+            formDataToSend.append("fbr_province", formData.fbr_province || "");
+            formDataToSend.append("fbr_environment", formData.fbr_environment || "sandbox");
+            if (formData.fbr_token) {
+                formDataToSend.append("fbr_token", formData.fbr_token);
+            }
     
             if (providerId) {
                 formDataToSend.append("id", providerId);
@@ -318,18 +373,8 @@ const SendersProfile = () => {
     
                 // Reset form
                 setProviderId("");
-                setFormData({
-                    provider_name: "",
-                    email: "",
-                    phone: "",
-                    mailing_address_1: "",
-                    mailing_address_2: "",
-                    billing_address_1: "",
-                    billing_address_2: "",
-                    payment_url: "",
-                    logo: null,
-                    qr_code: null,
-                });
+                setFormData({ ...formFields });
+                setHasFbrToken(false);
                 
                 setLogoPreview(null);
                 setqrCodePreview(null);
@@ -737,6 +782,115 @@ const SendersProfile = () => {
                                                         </div>
                                                     )}
                                                     </div>
+
+                                                    <div className="col-md-12 mt-3 mb-2">
+                                                        <h5 className="mb-1">FBR Digital Invoicing</h5>
+                                                        <p className="text-muted small mb-0">
+                                                            Pakistan sales tax invoice posting (sandbox first). Leave disabled for healthcare-only statements.
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="col-md-6">
+                                                        <div className="mb-3 form-check mt-2">
+                                                            <input
+                                                                className="form-check-input"
+                                                                type="checkbox"
+                                                                id="fbr_enabled"
+                                                                checked={!!formData.fbr_enabled}
+                                                                onChange={(e) => setFormData({ ...formData, fbr_enabled: e.target.checked })}
+                                                            />
+                                                            <label className="form-check-label" htmlFor="fbr_enabled">
+                                                                Enable FBR for this provider
+                                                            </label>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="col-md-6">
+                                                        <div className="mb-3">
+                                                            <label className="form-label">Environment</label>
+                                                            <select
+                                                                className="form-control"
+                                                                value={formData.fbr_environment}
+                                                                onChange={(e) => setFormData({ ...formData, fbr_environment: e.target.value })}
+                                                            >
+                                                                <option value="sandbox">Sandbox</option>
+                                                                <option value="production">Production</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="col-md-6">
+                                                        <div className="mb-3">
+                                                            <label className="form-label">Seller NTN / CNIC</label>
+                                                            <input
+                                                                className="form-control"
+                                                                type="text"
+                                                                value={formData.fbr_ntn}
+                                                                onChange={(e) => setFormData({ ...formData, fbr_ntn: e.target.value })}
+                                                                placeholder="7 or 13 digits"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="col-md-6">
+                                                        <div className="mb-3">
+                                                            <label className="form-label">STRN (optional)</label>
+                                                            <input
+                                                                className="form-control"
+                                                                type="text"
+                                                                value={formData.fbr_strn}
+                                                                onChange={(e) => setFormData({ ...formData, fbr_strn: e.target.value })}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="col-md-6">
+                                                        <div className="mb-3">
+                                                            <label className="form-label">Province</label>
+                                                            <select
+                                                                className="form-control"
+                                                                value={formData.fbr_province}
+                                                                onChange={(e) => setFormData({ ...formData, fbr_province: e.target.value })}
+                                                            >
+                                                                <option value="">Select province</option>
+                                                                <option value="Sindh">Sindh</option>
+                                                                <option value="Punjab">Punjab</option>
+                                                                <option value="Khyber Pakhtunkhwa">Khyber Pakhtunkhwa</option>
+                                                                <option value="Balochistan">Balochistan</option>
+                                                                <option value="Islamabad">Islamabad</option>
+                                                                <option value="Gilgit Baltistan">Gilgit Baltistan</option>
+                                                                <option value="Azad Jammu & Kashmir">Azad Jammu &amp; Kashmir</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="col-md-6">
+                                                        <div className="mb-3">
+                                                            <label className="form-label">
+                                                                FBR Bearer Token {hasFbrToken ? "(saved — leave blank to keep)" : ""}
+                                                            </label>
+                                                            <input
+                                                                className="form-control"
+                                                                type="password"
+                                                                value={formData.fbr_token}
+                                                                onChange={(e) => setFormData({ ...formData, fbr_token: e.target.value })}
+                                                                placeholder={hasFbrToken ? "••••••••" : "Paste sandbox token from FBR"}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {providerId !== "" && (
+                                                        <div className="col-md-12 mb-3">
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-outline-primary b-r-22 btn-sm"
+                                                                disabled={fbrTestLoading}
+                                                                onClick={handleFbrSandboxTest}
+                                                            >
+                                                                {fbrTestLoading ? "Testing..." : "Test FBR Sandbox (SN001)"}
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {providerId !== "" && (
