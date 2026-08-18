@@ -26,6 +26,7 @@ dist.zip
 /public/assets_old
 /public/images_old
 dist.zip
+dist_old.zip
 
 # log files
 npm-debug.log*
