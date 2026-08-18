@@ -810,7 +810,8 @@ const SystemUsers = () => {
                                                         </div>
                                                     </div>
 
-                                                    <div className="col-12 mb-3 text-left">     
+                                                    {formData.role !== 'super_admin' && (
+                                                        <div className="col-12 mb-3 text-left">     
                                                         <label className="mb-1">Manage Permissions</label>
                                                             
                                                         <div className="checkbox-options boxed-inputs nested-box-inputs">
@@ -841,6 +842,7 @@ const SystemUsers = () => {
                                                         ))}
                                                         </div>
                                                     </div>
+                                                    )}
                                                                 
                                                     {editUserForm && (
                                                         <input

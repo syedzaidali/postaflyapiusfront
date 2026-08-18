@@ -116,6 +116,15 @@ const Users = () => {
 
     //Initializing create user form button
     const createUserFormDisplay = () => {
+        setName("");
+        setUsername("");
+        setEmail("");
+        setAccountType("");
+        setInvoiceOption("");
+        setPassword("");
+        setPasswordConfirm("");
+        setUserID("");
+        setEditUserForm(false);
         setUserCreateForm(true);
         setBurgerActive(true);
         document.body.classList.add("fixed-body");
@@ -329,7 +338,9 @@ const Users = () => {
             const result = await response.json();
 
             if (response.ok) {
-                setMessageText(userID ? "User updated successfully!" : "User created successfully!");
+                setDisplayMessageSuccess(true);
+                setDisplayMessageError(false);
+                setMessageText(result.message || (userID ? "User updated successfully!" : "User created successfully!"));
 
                 setTimeout(() => {
                     setDisplayMessageSuccess(false);
@@ -340,9 +351,16 @@ const Users = () => {
 
                 closeMenu();
             } else {          
-                setError(result.errors);
+                const validationMessage = result.errors
+                    ? Object.values(result.errors).flat().join(' ')
+                    : (result.message || "Unable to save user.");
+
+                setDisplayMessageError(true);
+                setDisplayMessageSuccess(false);
+                setMessageText(validationMessage);
 
                 setTimeout(() => {
+                    setDisplayMessageError(false);
                     setMessageText(""); 
                 }, 8000);
             }
@@ -370,7 +388,9 @@ const Users = () => {
         setPasswordConfirm("");
         setUserID(user.id);
         setEditUserForm(true);
-        createUserFormDisplay();
+        setUserCreateForm(true);
+        setBurgerActive(true);
+        document.body.classList.add("fixed-body");
     };
 
     /*
@@ -819,7 +839,7 @@ const Users = () => {
                             <div className="col-md-12 full-loader">
                                 {showUserCreateForm && (
                                     <>
-                                        <h2 className="card-title mb-4">{showEditForm ? 'Edit' : 'Create'} Account</h2>
+                                        <h2 className="card-title mb-4">{editUserForm ? 'Edit' : 'Create'} Account</h2>
                                         
                                         <form method="POST" onSubmit={processCreateUser}>
                                             <div className="app-form">
@@ -868,12 +888,11 @@ const Users = () => {
                                                         </div>
                                                     </div>
 
-                                                    {!editUserForm && (
-                                                        <>
+                                                    <>
                                                             <div className="mb-3 col-md-6">
                                                                 <div className="mb-3 text-left">
                                                                     <i className="iconoir-eye"></i>
-                                                                    <label className="mb-1">Password</label>
+                                                                    <label className="mb-1">{editUserForm ? 'New password (optional)' : 'Password'}</label>
                                                                     <div className="input-icon-btn">
                                                                         <input 
                                                                             type={passwordVisible ? "text" : "password"}
@@ -882,8 +901,8 @@ const Users = () => {
                                                                             onChange={(e) => setPassword(e.target.value)}
                                                                             onFocus={() => setIsPasswordFocused(true)}
                                                                             onBlur={() => setIsPasswordFocused(false)}
-                                                                            required
-                                                                            placeholder="Enter Password"
+                                                                            required={!editUserForm}
+                                                                            placeholder={editUserForm ? "Leave blank to keep current password" : "Enter Password"}
                                                                         />
                                                                         <a 
                                                                             href="#" 
@@ -905,7 +924,7 @@ const Users = () => {
                                                                         className="form-control"
                                                                         value={passwordConfirm}
                                                                         onChange={(e) => setPasswordConfirm(e.target.value)}
-                                                                        required
+                                                                        required={!editUserForm}
                                                                         placeholder="Confirm Password"
                                                                     />
                                                                     <a 
@@ -936,8 +955,7 @@ const Users = () => {
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                        </>
-                                                    )}
+                                                    </>
 
                                                     <div className="col-12">
                                                         <div className="mb-3 text-left">
@@ -1036,7 +1054,7 @@ const Users = () => {
 
                                                 <div className="d-flex align-items-center gap-30">
                                                     <button type="submit" className="btn btn-primary b-r-22" disabled={btnDisabled}>
-                                                        Save
+                                                        {editUserForm ? 'Update Account' : 'Save'}
                                                     </button>
 
                                                     {btnLoader && (

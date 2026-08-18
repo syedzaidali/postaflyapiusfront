@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import apiRoutes from '../../routes/api/apiRoutes';
 import { goToAdminHome } from "../../constants/DomainRoutes";
+import { getTenantHomePath } from "../../utils/roleBasedAccess";
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 import {
@@ -54,7 +55,7 @@ const Login = () => {
             if (userRole === 'super_admin') {
                 goToAdminHome(navigate);
             } else {
-                navigate('/dashboard');
+                navigate(getTenantHomePath());
             }
         }
     }, [navigate]);
@@ -126,7 +127,7 @@ const Login = () => {
                     if (data.data.role === 'super_admin') {
                         goToAdminHome(navigate);
                     } else {
-                        navigate('/dashboard');
+                        navigate(getTenantHomePath());
                     }
                 }
             }

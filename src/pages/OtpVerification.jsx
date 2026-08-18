@@ -8,6 +8,7 @@ import {
   } from '../utils/icons';
 import { useLocation, useNavigate } from "react-router-dom";
 import { goToAdminHome } from "../constants/DomainRoutes";
+import { getTenantHomePath } from "../utils/roleBasedAccess";
 
 const OtpVerification = () => {
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -121,7 +122,7 @@ const OtpVerification = () => {
                     if (data.data.role === 'super_admin') {
                         goToAdminHome(navigate);
                     } else {
-                        navigate('/dashboard');
+                        navigate(getTenantHomePath());
                     }
                 } else {
                     navigate("/dashboard");

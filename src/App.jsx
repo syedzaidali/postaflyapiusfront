@@ -95,6 +95,7 @@ function App() {
                             <ProtectedRoute
                             element={<Dashboard />}
                             allowedRoles={['admin', 'manager']}
+                            requiredPermissions={['dashboard.view']}
                             />
                         } />
 
@@ -168,7 +169,7 @@ function App() {
                             <ProtectedRoute
                                 element={<InvoiceHistory />}
                                 allowedRoles={['admin', 'manager']}
-                                requiredPermissions={['transaction_email.view']}
+                                requiredPermissions={['invoice_history.view']}
                             />
                         } />
 
@@ -184,7 +185,7 @@ function App() {
                             <ProtectedRoute
                                 element={<Patients />}
                                 allowedRoles={['admin', 'manager']}
-                                requiredPermissions={['transaction_email.view']}
+                                requiredPermissions={['patients.view']}
                             />
                         } />
 
@@ -192,7 +193,7 @@ function App() {
                             <ProtectedRoute
                                 element={<PatientProfile />}
                                 allowedRoles={['admin', 'manager']}
-                                requiredPermissions={['transaction_email.view']}
+                                requiredPermissions={['patients.view']}
                             />
                         } />
 
@@ -200,7 +201,7 @@ function App() {
                             <ProtectedRoute
                                 element={<InvoiceHistory />}
                                 allowedRoles={['admin', 'manager']}
-                                requiredPermissions={['transaction_email.view']}
+                                requiredPermissions={['patients.view']}
                             />
                         } />
 
@@ -216,6 +217,7 @@ function App() {
                             <ProtectedRoute
                                 element={<Support />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['support.view']}
                             />
                         } />
 
@@ -223,6 +225,7 @@ function App() {
                             <ProtectedRoute
                                 element={<ViewTicket />}
                                 allowedRoles={['admin', 'manager']}
+                                requiredPermissions={['support.view']}
                             />
                         } />
 

@@ -47,3 +47,34 @@ export const hasPermission = (requiredPermissions = []) => {
         return moduleAllowed(module, action);
     });
 };
+
+const TENANT_HOME_CANDIDATES = [
+    ["dashboard", "/dashboard"],
+    ["leads", "/leads"],
+    ["campaigns", "/campaigns"],
+    ["marketing_email_templates", "/templates/marketing"],
+    ["providers", "/senders"],
+    ["transaction_email_templates", "/templates/transaction-email"],
+    ["transaction_email", "/transactional-emails"],
+    ["invoice_history", "/invoice-history"],
+    ["patients", "/patients"],
+    ["invoice_themes", "/invoice-templates"],
+    ["users", "/users"],
+    ["reports", "/reports"],
+    ["support", "/support"],
+    ["settings", "/settings"],
+];
+
+export const getTenantHomePath = () => {
+    if (isTenantAdmin()) {
+        return "/dashboard";
+    }
+
+    for (const [module, path] of TENANT_HOME_CANDIDATES) {
+        if (moduleAllowed(module, "view")) {
+            return path;
+        }
+    }
+
+    return "/account";
+};

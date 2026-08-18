@@ -43,7 +43,9 @@ const Sidebar = ({ isSemiNav, appLogoUrl }) => {
         canView('providers') ||
         canView('transaction_email') ||
         canView('transaction_email_templates') ||
-        canView('invoice_themes')
+        canView('invoice_themes') ||
+        canView('invoice_history') ||
+        canView('patients')
     );
 
     return (
@@ -143,7 +145,7 @@ const Sidebar = ({ isSemiNav, appLogoUrl }) => {
                             </li>
 
                             <li className="no-sub">
-                                <a href={`${ADMIN_ROUTE_PREFIX}/settings`}>
+                                <a>
                                     <Settings />
                                     Settings
                                 </a>
@@ -154,12 +156,14 @@ const Sidebar = ({ isSemiNav, appLogoUrl }) => {
                             <li className="menu-title">
                                 <span>Dashboard</span>
                             </li>
+                            {canView('dashboard') && (
                             <li className="no-sub">
                                 <a href="/dashboard">
                                     <HomeAlt />
                                     Dashboard
                                 </a>
                             </li>
+                            )}
 
                             {showMarketingSection && (
                                 <>
@@ -240,36 +244,38 @@ const Sidebar = ({ isSemiNav, appLogoUrl }) => {
                                     )}
 
                                     {canView('transaction_email') && (
-                                        <>
-                                            <li>
-                                                <a data-bs-toggle="collapse" href="#transactionalEmails">
-                                                    <i className="ti ti-mail-forward"></i>
-                                                    Transactional Emails
-                                                </a>
-                                                <ul className="collapse" id="transactionalEmails">
-                                                    <li><a href="/transactional-emails">All Emails</a></li>
-                                                    <li><a href="/transactional-emails-logs">All Emails Logs</a></li>
-                                                    {canCreate('transaction_email') && (
-                                                        <li><a href="/transactional-emails#create">Create Email</a></li>
-                                                    )}
-                                                    <li><a href="/transactional-emails/batch-downloads">Invoice Batches</a></li>
-                                                </ul>
-                                            </li>
+                                        <li>
+                                            <a data-bs-toggle="collapse" href="#transactionalEmails">
+                                                <i className="ti ti-mail-forward"></i>
+                                                Transactional Emails
+                                            </a>
+                                            <ul className="collapse" id="transactionalEmails">
+                                                <li><a href="/transactional-emails">All Emails</a></li>
+                                                <li><a href="/transactional-emails-logs">All Emails Logs</a></li>
+                                                {canCreate('transaction_email') && (
+                                                    <li><a href="/transactional-emails#create">Create Email</a></li>
+                                                )}
+                                                <li><a href="/transactional-emails/batch-downloads">Invoice Batches</a></li>
+                                            </ul>
+                                        </li>
+                                    )}
 
-                                            <li className="no-sub">
-                                                <a href="/invoice-history">
-                                                    <Clock />
-                                                    Invoice History
-                                                </a>
-                                            </li>
+                                    {canView('invoice_history') && (
+                                        <li className="no-sub">
+                                            <a href="/invoice-history">
+                                                <Clock />
+                                                Invoice History
+                                            </a>
+                                        </li>
+                                    )}
 
-                                            <li className="no-sub">
-                                                <a href="/patients">
-                                                    <i className="ti ti-user"></i>
-                                                    Patient Insights
-                                                </a>
-                                            </li>
-                                        </>
+                                    {canView('patients') && (
+                                        <li className="no-sub">
+                                            <a href="/patients">
+                                                <i className="ti ti-user"></i>
+                                                Patient Insights
+                                            </a>
+                                        </li>
                                     )}
 
                                     {canView('invoice_themes') && (
@@ -305,16 +311,18 @@ const Sidebar = ({ isSemiNav, appLogoUrl }) => {
                                 </li>
                             )}
 
-                            <li className="no-sub">
-                                <a href="/support">
-                                    <HelpCircle />
-                                    Support
-                                </a>
-                            </li>
+                            {canView('support') && (
+                                <li className="no-sub">
+                                    <a >
+                                        <HelpCircle />
+                                        Support
+                                    </a>
+                                </li>
+                            )}
 
                             {canView('settings') && (
                                 <li className="no-sub">
-                                    <a href="/settings">
+                                    <a >
                                         <Settings />
                                         Settings
                                     </a>

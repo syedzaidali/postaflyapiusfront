@@ -43,41 +43,37 @@ const ProfilePanel = () => {
 
     const firstName = getFirstName();
 
+    const clearSession = () => {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_role');
+        localStorage.removeItem('user_permissions');
+        localStorage.removeItem('name');
+        localStorage.removeItem('email');
+        localStorage.removeItem('username');
+        localStorage.removeItem('account');
+        navigate('/');
+    };
+
     const handleLogout = async () => {
         const token = localStorage.getItem('auth_token');
 
         if (!token) {
-            return; 
+            clearSession();
+            return;
         }
 
-        const headers = {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`, 
-        };        
-
         try {
-            const response = await fetch(apiRoutes.logout, {
+            await fetch(apiRoutes.logout, {
                 method: "POST",
-                headers,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
             });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                localStorage.removeItem('auth_token');
-                localStorage.removeItem('user_role');
-                localStorage.removeItem('user_permissions');
-                localStorage.removeItem('name');
-                localStorage.removeItem('email');
-                localStorage.removeItem('username');
-                localStorage.removeItem('account');
-
-                navigate('/');
-            } else {
-                console.error("Logout failed", data.message);
-            }
         } catch (error) {
             console.error("Error logging out:", error);
+        } finally {
+            clearSession();
         }
     };
 

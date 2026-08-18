@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { ACTIVE_DOMAIN_APP, getAdminDashboardPath, goToAdminHome, isAdminHost, isDevEnv } from "../constants/DomainRoutes";
-import { hasPermission } from "./roleBasedAccess";
+import { getTenantHomePath, hasPermission } from "./roleBasedAccess";
 
 const ProtectedRoute = ({ element, allowedRoles, requiredPermissions }) => {
     const isAuthenticated = localStorage.getItem("auth_token") !== null;
@@ -10,7 +10,7 @@ const ProtectedRoute = ({ element, allowedRoles, requiredPermissions }) => {
     const roleRedirects = {
         super_admin: getAdminDashboardPath(),
         admin: "/dashboard",
-        manager: "/dashboard",
+        manager: getTenantHomePath(),
     };
 
     if (!isAuthenticated) {
@@ -45,7 +45,7 @@ const ProtectedRoute = ({ element, allowedRoles, requiredPermissions }) => {
     }
 
     if (requiredPermissions?.length && !hasPermission(requiredPermissions)) {
-        return <Navigate to={roleRedirects[userRole] || "/dashboard"} replace />;
+        return <Navigate to={roleRedirects[userRole] || getTenantHomePath()} replace />;
     }
 
     return element;
