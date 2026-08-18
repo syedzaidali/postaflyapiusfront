@@ -8,7 +8,7 @@ import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 import ProtectedRoute from "./utils/ProtectedRoute";
 import TemplatesRoute from "./utils/TemplatesRoute";
-import { ADMIN_ROUTE_PREFIX } from "./constants/DomainRoutes";
+import { ADMIN_ROUTE_PREFIX, isAdminHost } from "./constants/DomainRoutes";
 import Notfound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
 import Signup from "./pages/Signup";
@@ -47,7 +47,7 @@ import AdminSubscriptions from "./pages/admin/Subscriptions";
 import AdminPaymentMethods from "./pages/admin/PaymentMethods";
 import AdminPackages from "./pages/admin/Packages";
 import AdminTransactions from "./pages/admin/Transactions";
-import UserBillingHistory from "./pages/admin/userBillingHistory";
+import UserBillingHistory from "./pages/admin/UserBillingHistory";
 import AdminSupport from "./pages/admin/Support";
 import AdminViewTicket from "./pages/admin/ViewSupportTicket";
 import AdminSystemUsers from "./pages/admin/SystemUsers";
@@ -70,9 +70,14 @@ function App() {
         };
     }, []);
 
-    const hostname      = window.location.hostname;
     const isDev         = import.meta.env.MODE === 'development';
-    const isAdminDomain = hostname.startsWith("admin") || (isDev && window.location.pathname.startsWith("/admin"));
+    const isAdminDomain = isAdminHost() || (isDev && window.location.pathname.startsWith("/admin"));
+
+    // Production admin lives at admin.postafly.com/dashboard, not /admin/dashboard
+    if (!isDev && isAdminHost() && window.location.pathname.startsWith("/admin")) {
+        const next = window.location.pathname.replace(/^\/admin/, "") || "/dashboard";
+        window.location.replace(next + window.location.search);
+    }
 
     return (
         <Router>

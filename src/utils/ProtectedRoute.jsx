@@ -1,16 +1,14 @@
 import { Navigate } from "react-router-dom";
-import { ADMIN_ROUTE_PREFIX } from "../constants/DomainRoutes";
+import { ACTIVE_DOMAIN_APP, getAdminDashboardPath, goToAdminHome, isAdminHost, isDevEnv } from "../constants/DomainRoutes";
 import { hasPermission } from "./roleBasedAccess";
 
 const ProtectedRoute = ({ element, allowedRoles, requiredPermissions }) => {
     const isAuthenticated = localStorage.getItem("auth_token") !== null;
     const userRole = localStorage.getItem("user_role");
-    const hostname = window.location.hostname;
-    const isDev = import.meta.env.MODE === "development";
-    const isAdminDomain = hostname.startsWith("admin") || isDev && window.location.pathname.startsWith("/admin");
+    const isAdminDomain = isAdminHost() || (isDevEnv() && window.location.pathname.startsWith("/admin"));
 
     const roleRedirects = {
-        super_admin: `${ADMIN_ROUTE_PREFIX}/dashboard`,
+        super_admin: getAdminDashboardPath(),
         admin: "/dashboard",
         manager: "/dashboard",
     };
@@ -20,14 +18,29 @@ const ProtectedRoute = ({ element, allowedRoles, requiredPermissions }) => {
     }
 
     if (isAdminDomain && userRole !== "super_admin") {
-        return <Navigate to="/dashboard" replace />;
+        if (isDevEnv()) {
+            return <Navigate to="/dashboard" replace />;
+        }
+        window.location.assign(`${ACTIVE_DOMAIN_APP}/dashboard`);
+        return null;
     }
 
     if (!isAdminDomain && userRole === "super_admin") {
-        return <Navigate to={`${ADMIN_ROUTE_PREFIX}/dashboard`} replace />;
+        if (isDevEnv()) {
+            return <Navigate to="/admin/dashboard" replace />;
+        }
+        goToAdminHome();
+        return null;
     }
 
     if (!allowedRoles.includes(userRole)) {
+        if (userRole === "super_admin") {
+            if (isDevEnv()) {
+                return <Navigate to="/admin/dashboard" replace />;
+            }
+            goToAdminHome();
+            return null;
+        }
         return <Navigate to={roleRedirects[userRole] || "/"} replace />;
     }
 

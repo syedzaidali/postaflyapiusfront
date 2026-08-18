@@ -18,6 +18,14 @@ dist.zip
 .env.development.local
 .env.test.local
 .env.production.local
+# Keep .env.development and .env.production in git so local/live URLs switch automatically.
+
+# built assets copied from hosting
+/public/assets
+/public/assets.zip
+/public/assets_old
+/public/images_old
+dist.zip
 
 # log files
 npm-debug.log*

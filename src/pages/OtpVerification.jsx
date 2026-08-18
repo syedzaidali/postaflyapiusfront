@@ -7,6 +7,7 @@ import {
     Google
   } from '../utils/icons';
 import { useLocation, useNavigate } from "react-router-dom";
+import { goToAdminHome } from "../constants/DomainRoutes";
 
 const OtpVerification = () => {
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -118,7 +119,7 @@ const OtpVerification = () => {
                     localStorage.setItem('account', data.data.account);
 
                     if (data.data.role === 'super_admin') {
-                        navigate('/admin/dashboard');
+                        goToAdminHome(navigate);
                     } else {
                         navigate('/dashboard');
                     }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import apiRoutes from '../../routes/api/apiRoutes';
-import { ADMIN_ROUTE_PREFIX } from "../../constants/DomainRoutes";
+import { goToAdminHome } from "../../constants/DomainRoutes";
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 import {
@@ -52,7 +52,7 @@ const Login = () => {
 
         if (token) {
             if (userRole === 'super_admin') {
-                navigate('/admin/dashboard');
+                goToAdminHome(navigate);
             } else {
                 navigate('/dashboard');
             }
@@ -124,7 +124,7 @@ const Login = () => {
                     localStorage.setItem('account', data.data.account);
 
                     if (data.data.role === 'super_admin') {
-                        navigate(`${ADMIN_ROUTE_PREFIX}/dashboard`);
+                        goToAdminHome(navigate);
                     } else {
                         navigate('/dashboard');
                     }

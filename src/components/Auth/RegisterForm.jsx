@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import apiRoutes from '../../routes/api/apiRoutes';
+import { goToAdminHome } from "../../constants/DomainRoutes";
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 import {
@@ -114,7 +115,7 @@ const RegisterForm = () => {
 
         if (token) {
             if (userRole === 'super_admin') {
-                navigate('/admin/dashboard');
+                goToAdminHome(navigate);
             } else {
                 navigate('/dashboard');
             }
