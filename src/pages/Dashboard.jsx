@@ -45,10 +45,8 @@ const Dashboard = () => {
             const result = await response.json();
 
             if (response.ok && result.status) {
-                //Invoices Count
-                setInvoicesCount(result.totalInvoices);
+                setInvoicesCount(result.totalInvoices || 0);
 
-                //New Patients Data
                 setNewPatients([
                     result.newPatients,
                     result.patientsDateFrom,
@@ -56,24 +54,18 @@ const Dashboard = () => {
                     result.patientsYear
                 ])
 
-                //Set Invoice Data Last Week
-                setInvoicesGenData(result.invoicesLastWeek);
+                setInvoicesGenData(Array.isArray(result.invoicesLastWeek) ? result.invoicesLastWeek : []);
+                setTotalPatients(result.totalPatients || 0);
+                setinvoiceBatchData(Array.isArray(result.invoiceBatches) ? result.invoiceBatches : []);
 
-                //Setting Total Patients
-                setTotalPatients(result.totalPatients);
-
-                //Set invoices batches Data
-                setinvoiceBatchData(result.invoiceBatches);
-
-                //Setting Chart Data
-                const values = result.chartData.values.map(v => Number(v) || 0);
+                const chartValues = Array.isArray(result.chartData?.values) ? result.chartData.values : [];
+                const chartDates = Array.isArray(result.chartData?.dates) ? result.chartData.dates : [];
                 setChartData({
-                    dates: result.chartData.dates,
-                    values: result.chartData.values,
-                });                
+                    dates: chartDates,
+                    values: chartValues.map(v => Number(v) || 0),
+                });
 
-                //Setting Invoice History
-                setInvoiceHistory(result.recentInvoices);
+                setInvoiceHistory(Array.isArray(result.recentInvoices) ? result.recentInvoices : []);
             }
         } catch (error) {
             console.error("Failed to fetch campaigns:", error);
@@ -371,7 +363,7 @@ const Dashboard = () => {
                                         <tr>
                                             <td colSpan="9" className="text-center">Loading...</td>
                                         </tr>
-                                    ) : invoiceHistory.length > 0 ? (
+                                    ) : (invoiceHistory || []).length > 0 ? (
                                         invoiceHistory.map((invoice, index) => {
                                             return (
                                                 <tr key={invoice.cs_invoiceId}>

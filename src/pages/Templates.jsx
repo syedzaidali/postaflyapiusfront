@@ -6,6 +6,7 @@ import AppLayout from '../components/Layouts/AppLayout';
 import HtmlEditor from '../components/Editors/HtmlEditor';
 import { ReactSummernoteLite } from '@easylogic/react-summernote-lite';
 import { useDropzone } from 'react-dropzone';
+import { unwrapLastPage, unwrapPagedRows, prependRow, authGetHeaders } from '../utils/listResponse';
 import {
     LayoutLeft,
     Search,
@@ -255,28 +256,29 @@ const Templates = () => {
             const queryParams = new URLSearchParams({
                 page,
                 per_page: perPage,
-                ...(search && { search }) // include search only if not empty
+                _ts: Date.now(),
+                ...(search && { search })
             });
-    
-            const type = templateType; 
+
+            const type = templateType;
             const url = `${apiRoutes.getAllTemplates}?type=${encodeURIComponent(type)}&${queryParams}`;
-
-
-            const headers = {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-            };
 
             const response = await fetch(url, {
                 method: "GET",
-                headers: headers
+                cache: "no-store",
+                headers: authGetHeaders(token),
             });
 
             const result = await response.json();
 
             if (response.ok && result.status) {
-                setTemplates(result.data.data);
-                setTotalPages(result.data.last_page || 1);
+                const rows = unwrapPagedRows(result);
+                setTemplates((prev) => {
+                    const ids = new Set(rows.map((row) => row.id));
+                    const pending = prev.filter((row) => row._justCreated && !ids.has(row.id));
+                    return [...pending, ...rows];
+                });
+                setTotalPages(unwrapLastPage(result));
             } else {
                 console.error(result);
             }
@@ -337,8 +339,7 @@ const Templates = () => {
 
                 setFiles([]);
 
-                fetchTemplates(1, searchQuery);
-
+                setTemplates((prev) => prependRow(prev, result.data));
                 closeMenu();
             } else {
                 alert(result.message || "Failed to create contact.");
@@ -497,7 +498,7 @@ const Templates = () => {
                                         <tr>
                                             <td colSpan="8" className="text-center">Loading...</td>
                                         </tr>
-                                    ) : templates.length > 0 ? (
+                                    ) : (templates || []).length > 0 ? (
                                         templates.map((template) => (
                                             <tr key={template.id}>
                                                 <td>

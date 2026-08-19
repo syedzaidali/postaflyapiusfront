@@ -29,17 +29,15 @@ const AppLayout = ({ children }) => {
                 "Authorization": `Bearer ${token}`,
             };
 
-            const response = await fetch(`${apiRoutes.getAllSettings}`, {
+            const response = await fetch(`${apiRoutes.getAppSettings}`, {
                 method: "GET",
                 headers: headers
             });
 
             const result = await response.json();
 
-            if (result.status) {
+            if (result.status && result.data?.site_logo) {
                 setAppLogoUrl(result.data.site_logo);
-            } else {
-                console.error('Error : ' + JSON.stringify(result));
             }
         } catch (error) {
             console.error("Failed to fetch campaigns:", error);

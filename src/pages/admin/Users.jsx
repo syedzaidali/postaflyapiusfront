@@ -5,6 +5,7 @@ import apiRoutes from '../../routes/api/apiRoutes';
 import AppLayout from '../../components/Layouts/AppLayout';
 import usePagination from '../../hooks/usePagination';
 import { ADMIN_ROUTE_PREFIX } from "../../constants/DomainRoutes";
+import { unwrapLastPage, unwrapPagedRows, authGetHeaders } from '../../utils/listResponse';
 import {
     UserPlus,
     Search,
@@ -233,24 +234,21 @@ const Users = () => {
             const queryParams = new URLSearchParams({
                 page,
                 per_page: perPage,
+                _ts: Date.now(),
                 ...(search && { search })
             });
-    
-            const headers = {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-            };
 
             const response = await fetch(`${apiRoutes.getAllTenantUsers}?${queryParams}`, {
                 method: "GET",
-                headers: headers
+                cache: "no-store",
+                headers: authGetHeaders(token),
             });
 
             const result = await response.json();
 
             if (response.ok) {
-                setListAllUsers(result.data); 
-                setTotalPages(result.pagination?.last_page || 1);
+                setListAllUsers(unwrapPagedRows(result));
+                setTotalPages(unwrapLastPage(result));
             } else {
                 console.error('Error : ' + JSON.stringify(result));
             }
@@ -347,8 +345,8 @@ const Users = () => {
                     setMessageText(""); 
                 }, 8000);
 
-                fetchUsers(currentPage);
-
+                setCurrentPage(1);
+                await fetchUsers(1);
                 closeMenu();
             } else {          
                 const validationMessage = result.errors

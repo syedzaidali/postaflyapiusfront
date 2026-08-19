@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 import apiRoutes from '../routes/api/apiRoutes';
 import AppLayout from '../components/Layouts/AppLayout';
+import { unwrapLastPage, unwrapPagedRows, prependRow, authGetHeaders } from '../utils/listResponse';
 import {
     UserPlus,
     Upload,
@@ -201,25 +202,26 @@ const Leads = () => {
             const queryParams = new URLSearchParams({
                 page,
                 per_page: perPage,
-                ...(search && { search }) // include search only if not empty
+                _ts: Date.now(),
+                ...(search && { search })
             });
-    
-            const headers = {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-            };
 
             const response = await fetch(`${apiRoutes.getLeads}?${queryParams}`, {
                 method: "GET",
-                headers: headers
+                cache: "no-store",
+                headers: authGetHeaders(token),
             });
 
             const result = await response.json();
-            
-            
+
             if (response.ok && result.status) {
-                setLeads(result.data.data);
-                setTotalPages(result.data.last_page || 1);
+                const rows = unwrapPagedRows(result);
+                setLeads((prev) => {
+                    const ids = new Set(rows.map((row) => row.id));
+                    const pending = prev.filter((row) => row._justCreated && !ids.has(row.id));
+                    return [...pending, ...rows];
+                });
+                setTotalPages(unwrapLastPage(result));
             } else {
                 console.error(result);
             }
@@ -330,9 +332,7 @@ const Leads = () => {
             if (response.ok) {
                 alert("Lead created successfully!");
                 setFormData({ ...formFields });
-                
-                fetchLeads(1, searchQuery);
-
+                setLeads((prev) => prependRow(prev, result.data));
                 closeMenu();
             } else {
                 alert(result.message || "Failed to create contact.");
@@ -659,7 +659,7 @@ const Leads = () => {
                                         <tr>
                                             <td colSpan="8" className="text-center">Loading...</td>
                                         </tr>
-                                    ) : leads.length > 0 ? (
+                                    ) : (leads || []).length > 0 ? (
                                         leads.map((lead) => (
                                             <tr key={lead.id}>
                                                 <td>
