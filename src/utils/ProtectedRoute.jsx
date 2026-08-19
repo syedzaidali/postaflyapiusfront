@@ -1,11 +1,12 @@
-import { Navigate } from "react-router-dom";
-import { ACTIVE_DOMAIN_APP, getAdminDashboardPath, goToAdminHome, isAdminHost, isDevEnv } from "../constants/DomainRoutes";
+import { Navigate, useLocation } from "react-router-dom";
+import { getAdminDashboardPath } from "../constants/DomainRoutes";
 import { getTenantHomePath, hasPermission } from "./roleBasedAccess";
 
 const ProtectedRoute = ({ element, allowedRoles, requiredPermissions }) => {
     const isAuthenticated = localStorage.getItem("auth_token") !== null;
     const userRole = localStorage.getItem("user_role");
-    const isAdminDomain = isAdminHost() || (isDevEnv() && window.location.pathname.startsWith("/admin"));
+    const { pathname } = useLocation();
+    const isAdminArea = pathname.startsWith("/admin");
 
     const roleRedirects = {
         super_admin: getAdminDashboardPath(),
@@ -17,29 +18,17 @@ const ProtectedRoute = ({ element, allowedRoles, requiredPermissions }) => {
         return <Navigate to="/" replace />;
     }
 
-    if (isAdminDomain && userRole !== "super_admin") {
-        if (isDevEnv()) {
-            return <Navigate to="/dashboard" replace />;
-        }
-        window.location.assign(`${ACTIVE_DOMAIN_APP}/dashboard`);
-        return null;
+    if (isAdminArea && userRole !== "super_admin") {
+        return <Navigate to="/dashboard" replace />;
     }
 
-    if (!isAdminDomain && userRole === "super_admin") {
-        if (isDevEnv()) {
-            return <Navigate to="/admin/dashboard" replace />;
-        }
-        goToAdminHome();
-        return null;
+    if (!isAdminArea && userRole === "super_admin") {
+        return <Navigate to={getAdminDashboardPath()} replace />;
     }
 
     if (!allowedRoles.includes(userRole)) {
         if (userRole === "super_admin") {
-            if (isDevEnv()) {
-                return <Navigate to="/admin/dashboard" replace />;
-            }
-            goToAdminHome();
-            return null;
+            return <Navigate to={getAdminDashboardPath()} replace />;
         }
         return <Navigate to={roleRedirects[userRole] || "/"} replace />;
     }

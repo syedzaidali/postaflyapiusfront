@@ -8,7 +8,7 @@ import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 import ProtectedRoute from "./utils/ProtectedRoute";
 import TemplatesRoute from "./utils/TemplatesRoute";
-import { ADMIN_ROUTE_PREFIX, isAdminHost } from "./constants/DomainRoutes";
+import { ADMIN_ROUTE_PREFIX } from "./constants/DomainRoutes";
 import Notfound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
 import Signup from "./pages/Signup";
@@ -70,15 +70,6 @@ function App() {
         };
     }, []);
 
-    const isDev         = import.meta.env.MODE === 'development';
-    const isAdminDomain = isAdminHost() || (isDev && window.location.pathname.startsWith("/admin"));
-
-    // Production admin lives at admin.postafly.com/dashboard, not /admin/dashboard
-    if (!isDev && isAdminHost() && window.location.pathname.startsWith("/admin")) {
-        const next = window.location.pathname.replace(/^\/admin/, "") || "/dashboard";
-        window.location.replace(next + window.location.search);
-    }
-
     return (
         <Router>
             <Routes>
@@ -88,8 +79,7 @@ function App() {
                 <Route path="/register" element={<Signup />} />
                 <Route path="/verify-otp" element={<OtpVerification />} />
                   
-                {!isAdminDomain && (
-                    <>
+                <>
                         {/* Managers / Admins Routes */}
                         <Route path="/dashboard" element={
                             <ProtectedRoute
@@ -272,11 +262,9 @@ function App() {
                             />
                         } />                        
                     </>
-                )}
 
-                {isAdminDomain && (
                     <>
-                        {/* Super Admin Routes */}
+                        {/* Super Admin Routes — same host as app.postafly.com, under /admin */}
                         <Route path={`${ADMIN_ROUTE_PREFIX}/dashboard`} element={
                             <ProtectedRoute 
                                 element={<AdminDashboard />} 
@@ -410,7 +398,6 @@ function App() {
                             } 
                         />
                     </>
-                )}
 
                 <Route path="*" element={<Notfound />} />
             </Routes>
