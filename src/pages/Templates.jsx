@@ -53,6 +53,7 @@ const Templates = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(false);
     const [selectedTemplates, setSelectedTemplates] = useState([]);
+    const [previewTemplate, setPreviewTemplate] = useState(null);
 
     //Defining success and error mesages const stats
     const [showMessageError, setShowMessageError] = useState(false);
@@ -340,9 +341,11 @@ const Templates = () => {
                 setFiles([]);
 
                 setTemplates((prev) => prependRow(prev, result.data));
+                setCurrentPage(1);
+                await fetchTemplates(1, searchQuery);
                 closeMenu();
             } else {
-                alert(result.message || "Failed to create contact.");
+                alert(result.message || "Failed to create template.");
             }
         } catch (error) {
             if (error.response?.status === 422) {
@@ -352,8 +355,9 @@ const Templates = () => {
                 });
             } else {
                 console.log("Unexpected error occurred.");
+                alert("An unexpected error occurred. Please try again.");
             }
-        }  finally {
+        } finally {
             setReqLoader(false);
     
             setTimeout(() => {
@@ -488,15 +492,17 @@ const Templates = () => {
                                     <thead>
                                         <tr>
                                             <th scope="col">&nbsp;</th>
+                                            <th scope="col">Preview</th>
                                             <th scope="col">Title</th>
                                             <th scope="col">Subject</th>
+                                            <th scope="col">Status</th>
                                             <th scope="col">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                     {loading ? (
                                         <tr>
-                                            <td colSpan="8" className="text-center">Loading...</td>
+                                            <td colSpan="6" className="text-center">Loading...</td>
                                         </tr>
                                     ) : (templates || []).length > 0 ? (
                                         templates.map((template) => (
@@ -511,6 +517,25 @@ const Templates = () => {
                                                         />
                                                         <span className="checkmark outline-primary ms-2"></span>
                                                     </label>
+                                                </td>
+                                                <td>
+                                                    {template.message ? (
+                                                        <button
+                                                            type="button"
+                                                            className="email-template-thumb"
+                                                            title="Preview email"
+                                                            onClick={() => setPreviewTemplate(template)}
+                                                        >
+                                                            <iframe
+                                                                title={`preview-${template.id}`}
+                                                                srcDoc={template.message}
+                                                                sandbox=""
+                                                                tabIndex={-1}
+                                                            />
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-muted f-w-400">No preview</span>
+                                                    )}
                                                 </td>
                                                 <td>
                                                     <div className="d-flex align-items-center">
@@ -535,7 +560,7 @@ const Templates = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="8" className="text-center">No templates found.</td>
+                                            <td colSpan="6" className="text-center">No templates found.</td>
                                         </tr>
                                     )}
                                     </tbody>
@@ -819,6 +844,42 @@ const Templates = () => {
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {previewTemplate && (
+                <div className="email-template-preview-overlay" onClick={() => setPreviewTemplate(null)}>
+                    <div
+                        className="email-template-preview-modal"
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Email template preview"
+                    >
+                        <div className="email-template-preview-header">
+                            <div>
+                                <h5 className="mb-0">{previewTemplate.title || 'Template preview'}</h5>
+                                {previewTemplate.subject && (
+                                    <p className="mb-0 text-muted small">Subject: {previewTemplate.subject}</p>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                className="btn btn-light icon-btn b-r-4"
+                                onClick={() => setPreviewTemplate(null)}
+                                aria-label="Close preview"
+                            >
+                                <Xmark size={14} width={18} />
+                            </button>
+                        </div>
+                        <div className="email-template-preview-body">
+                            <iframe
+                                title="email-template-full-preview"
+                                srcDoc={previewTemplate.message || '<p>No content</p>'}
+                                sandbox=""
+                            />
                         </div>
                     </div>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 import apiRoutes from '../routes/api/apiRoutes';
@@ -52,6 +52,13 @@ const Campaigns = () => {
     const [successMessage, setSuccessMessage] = useState("");
     const [btnDisabled, setBtnDisabled] = useState(false);
     const [btnLoader, setBtnLoader] = useState(false);
+    const [messageText, setMessageText] = useState("");
+    const [displayMessageError, setDisplayMessageError] = useState(false);
+    const [displayMessageSuccess, setDisplayMessageSuccess] = useState(false);
+    const [senderCheckLoading, setSenderCheckLoading] = useState(false);
+    const [senderActive, setSenderActive] = useState(null);
+    const [senderCheckMessage, setSenderCheckMessage] = useState("");
+    const senderCheckTimer = useRef(null);
     
     /*
      * Page Functionalities
@@ -73,7 +80,10 @@ const Campaigns = () => {
                 group_id: "",
                 template_id: "",
                 status: ""
-            }); 
+            });
+            setSenderActive(null);
+            setSenderCheckMessage("");
+            setSenderCheckLoading(false);
 
             document.body.classList.remove("fixed-body");
         }, 500);
@@ -157,17 +167,25 @@ const Campaigns = () => {
     useEffect(() => {
         const fetchGroups = async () => {
             try {
-                const response = await fetch(apiRoutes.getGroups, {
+                const response = await fetch(`${apiRoutes.getGroups}?_ts=${Date.now()}`, {
                     headers: {
                         "Authorization": `Bearer ${token}`,
+                        "Accept": "application/json",
+                        "Cache-Control": "no-cache",
                     },
+                    cache: "no-store",
                 });
     
                 const result = await response.json();
-
-                setGroups(result.groups || []);
+                const rows = (result.groups || []).map((group) => ({
+                    id: group.id || group.ID,
+                    title: group.title || group.name || "",
+                    status: Number(group.status ?? 1),
+                }));
+                setGroups(rows);
             } catch (error) {
                 console.error("Failed to fetch groups", error);
+                setGroups([]);
             }
         };
     
@@ -178,37 +196,97 @@ const Campaigns = () => {
     const fetchTemplates = async () => {
         try {
             const type = "marketing"; 
-            const url = `${apiRoutes.getAllTemplates}?type=${encodeURIComponent(type)}`;
-
-            const headers = {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-            };
+            const url = `${apiRoutes.getAllTemplates}?type=${encodeURIComponent(type)}&_ts=${Date.now()}`;
 
             const response = await fetch(url, {
                 method: "GET",
-                headers: headers
+                cache: "no-store",
+                headers: authGetHeaders(token),
             });
 
             const result = await response.json();
 
             if (response.ok && result.status) {
-                setTemplates(result.data.data);
+                setTemplates(unwrapPagedRows(result));
             } else {
                 console.error(result);
+                setTemplates([]);
             }
         } catch (error) {
-            console.error("Failed to fetch leads:", error);
+            console.error("Failed to fetch templates:", error);
+            setTemplates([]);
         } 
     };
     
     useEffect(() => {
         fetchTemplates();
     }, []);
+
+    const checkSenderEmail = async (email) => {
+        const value = (email || "").trim();
+        if (!value) {
+            setSenderActive(null);
+            setSenderCheckMessage("");
+            setSenderCheckLoading(false);
+            return;
+        }
+
+        setSenderCheckLoading(true);
+        try {
+            const response = await fetch(
+                `${apiRoutes.checkCampaignSender}?email=${encodeURIComponent(value)}&_ts=${Date.now()}`,
+                {
+                    method: "GET",
+                    cache: "no-store",
+                    headers: authGetHeaders(token),
+                }
+            );
+            const result = await response.json();
+            setSenderActive(!!result.active);
+            setSenderCheckMessage(
+                result.message ||
+                    (result.active
+                        ? "This email is active."
+                        : "This email is not active in this system. Please ask admin to review this.")
+            );
+        } catch (error) {
+            console.error("Failed to check sender email:", error);
+            setSenderActive(false);
+            setSenderCheckMessage("Unable to verify sender email. Please try again.");
+        } finally {
+            setSenderCheckLoading(false);
+        }
+    };
+
+    const handleSenderEmailChange = (e) => {
+        const value = e.target.value;
+        setFormData({ ...formData, senderEmail: value });
+        setSenderActive(null);
+        setSenderCheckMessage("");
+
+        if (senderCheckTimer.current) {
+            clearTimeout(senderCheckTimer.current);
+        }
+
+        senderCheckTimer.current = setTimeout(() => {
+            checkSenderEmail(value);
+        }, 500);
+    };
     
     //Process Create Campaign
     const processCreateCampaign = async (e) => {
         e.preventDefault();
+
+        if (senderActive !== true) {
+            const msg =
+                senderCheckMessage ||
+                "This email is not active in this system. Please ask admin to review this.";
+            setDisplayMessageError(true);
+            setMessageText(msg);
+            alert(msg);
+            return;
+        }
+
         setBtnLoader(true);
         setBtnDisabled(true);
 
@@ -227,34 +305,38 @@ const Campaigns = () => {
             const result = await response.json();
     
             if (response.ok) {
-                setSuccessMessage(result.message);
+                setSuccessMessage(result.message || "Campaign created successfully!");
                 setShowSuccessMessage(true);
+                setDisplayMessageSuccess(true);
+                setMessageText(result.message || "Campaign created successfully!");
                 setFormData(formFields);
 
                 setTimeout(() => {
                     setShowSuccessMessage(false);
-                }, 500);
+                    setDisplayMessageSuccess(false);
+                    setMessageText("");
+                }, 5000);
 
                 setCampaigns((prev) => prependRow(prev, result.data));
+                setCurrentPage(1);
+                await fetchCampaigns(1, searchQuery);
                 closeMenu();
             } else {
-                alert(result.message || "Failed to create contact.");
+                setDisplayMessageError(true);
+                setMessageText(result.message || "Failed to create campaign.");
+                alert(result.message || "Failed to create campaign.");
             }
         } catch (error) {
             setDisplayMessageError(true);
             setMessageText("An unexpected error occurred. Please try again.");
-        }  finally {
+            alert("An unexpected error occurred. Please try again.");
+        } finally {
             setBtnLoader(false);
             setBtnDisabled(false);
-
-            // setTimeout(() => {
-            //     setShowMessageError(false);
-            // }, 4500);
-    
-            // setTimeout(() => {
-            //     setDisplayMessageError(false);
-            //     setMessageText("");
-            // }, 8000);
+            setTimeout(() => {
+                setDisplayMessageError(false);
+                setMessageText("");
+            }, 8000);
         }
     }
 
@@ -339,7 +421,7 @@ const Campaigns = () => {
                                             <td colSpan="9" className="text-center">Loading...</td>
                                         </tr>
                                     ) : (campaigns || []).length > 0 ? (
-                                        campaigns.map((campaign) => (
+                                        (campaigns || []).map((campaign) => (
                                             <tr key={campaign.id}>
                                                 <td>
                                                     <label className="check-box">
@@ -489,9 +571,25 @@ const Campaigns = () => {
                                                                 name="senderEmail"
                                                                 type="email"
                                                                 value={formData.senderEmail}
-                                                                onChange={(e) => setFormData({ ...formData, senderEmail: e.target.value })}
+                                                                onChange={handleSenderEmailChange}
+                                                                onBlur={() => checkSenderEmail(formData.senderEmail)}
                                                                 required
+                                                                placeholder="Enter sender email"
                                                             />
+                                                            {senderCheckLoading && (
+                                                                <span className="supporting-label d-block mt-1 text-muted">
+                                                                    Checking sender email...
+                                                                </span>
+                                                            )}
+                                                            {!senderCheckLoading && senderCheckMessage && (
+                                                                <span
+                                                                    className={`supporting-label d-block mt-1 ${
+                                                                        senderActive ? "text-success" : "text-danger"
+                                                                    }`}
+                                                                >
+                                                                    {senderCheckMessage}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
 
@@ -506,7 +604,7 @@ const Campaigns = () => {
                                                                 required
                                                             >
                                                                 <option value="">Select Group</option>
-                                                                {groups.map((group) => (
+                                                                {(groups || []).map((group) => (
                                                                     <option key={group.id} value={group.id}>
                                                                         {group.title}
                                                                     </option>
@@ -526,7 +624,7 @@ const Campaigns = () => {
                                                                 required
                                                             >
                                                                 <option value="">Select Template</option>
-                                                                {templates.map((template) => (
+                                                                {(templates || []).map((template) => (
                                                                     <option key={template.id} value={template.id}>
                                                                         {template.title}
                                                                     </option>
@@ -552,7 +650,11 @@ const Campaigns = () => {
                                             </div>
 
                                             <div className="d-flex align-items-center gap-30">
-                                                <button type="submit" className="btn btn-primary b-r-22" disabled={btnDisabled}>
+                                                <button
+                                                    type="submit"
+                                                    className="btn btn-primary b-r-22"
+                                                    disabled={btnDisabled || senderActive !== true || senderCheckLoading}
+                                                >
                                                     Create Campaign
                                                 </button>
 

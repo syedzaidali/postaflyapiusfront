@@ -31,22 +31,27 @@ const Sidebar = ({ isSemiNav, appLogoUrl }) => {
     const isTransactionalAccount = accountType === "transaction_email";
     const isMarketingAccount = accountType === "email_marketing";
 
-    const showMarketingSection = isMarketingAccount && (
-        isAdmin ||
-        canView('leads') ||
-        canView('campaigns') ||
-        canView('marketing_email_templates')
-    );
+    // Show by permission (not only account type). Account type still unlocks full sections for tenant admins.
+    const showMarketingSection =
+        isAdmin
+            ? isMarketingAccount
+            : (
+                canView('leads') ||
+                canView('campaigns') ||
+                canView('marketing_email_templates')
+            );
 
-    const showTransactionalSection = (isTransactionalAccount || isManager) && (
-        isAdmin ||
-        canView('providers') ||
-        canView('transaction_email') ||
-        canView('transaction_email_templates') ||
-        canView('invoice_themes') ||
-        canView('invoice_history') ||
-        canView('patients')
-    );
+    const showTransactionalSection =
+        isAdmin
+            ? (isTransactionalAccount || isManager)
+            : (
+                canView('providers') ||
+                canView('transaction_email') ||
+                canView('transaction_email_templates') ||
+                canView('invoice_themes') ||
+                canView('invoice_history') ||
+                canView('patients')
+            );
 
     return (
         <nav className={`vertical-sidebar ${isSemiNav ? "semi-nav" : ""}`}>

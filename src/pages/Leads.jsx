@@ -333,6 +333,8 @@ const Leads = () => {
                 alert("Lead created successfully!");
                 setFormData({ ...formFields });
                 setLeads((prev) => prependRow(prev, result.data));
+                setCurrentPage(1);
+                await fetchLeads(1, searchQuery);
                 closeMenu();
             } else {
                 alert(result.message || "Failed to create contact.");
@@ -340,7 +342,8 @@ const Leads = () => {
         } catch (error) {
             setDisplayMessageError(true);
             setMessageText("An unexpected error occurred. Please try again.");
-        }  finally {
+            alert("An unexpected error occurred. Please try again.");
+        } finally {
             setReqLoader(false);
     
             setTimeout(() => {
@@ -468,21 +471,49 @@ const Leads = () => {
     
             const result = await response.json();
     
-            if (response.ok) {
+            if (response.ok && result.status) {
                 setDisplayMessageSuccess(true);
-                setMessageText("Group created successfully!");
+                setMessageText(result.message || "Group created successfully!");
                 setGroupName("");
                 setStatus(1);
 
-                const newGroupRaw = result.data || result.group || result;
-
+                const newGroupRaw = result.data || result.group || {};
                 const newGroup = {
-                    id: newGroupRaw.ID,
-                    name: newGroupRaw.title,
-                    status: newGroupRaw.status,
+                    id: newGroupRaw.id || newGroupRaw.ID,
+                    title: newGroupRaw.title || newGroupRaw.name || groupName,
+                    name: newGroupRaw.title || newGroupRaw.name || groupName,
+                    status: Number(newGroupRaw.status ?? 1),
+                    leadsCount: 0,
                 };
 
-                setGroups((prevGroups) => [...prevGroups, newGroup]);
+                setGroups((prevGroups) => {
+                    if (!newGroup.id) return prevGroups;
+                    return [newGroup, ...prevGroups.filter((g) => (g.id || g.ID) !== newGroup.id)];
+                });
+
+                // Refresh groups list from server so dropdown/table stay in sync
+                try {
+                    const groupsRes = await fetch(`${apiRoutes.getGroups}?_ts=${Date.now()}`, {
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                            "Accept": "application/json",
+                            "Cache-Control": "no-cache",
+                        },
+                        cache: "no-store",
+                    });
+                    if (groupsRes.ok) {
+                        const groupsJson = await groupsRes.json();
+                        setGroups((groupsJson.groups || []).map((g) => ({
+                            id: g.id || g.ID,
+                            title: g.title || g.name || "",
+                            name: g.title || g.name || "",
+                            status: Number(g.status ?? 1),
+                            leadsCount: g.leadsCount ?? g.leads_count ?? 0,
+                        })));
+                    }
+                } catch (groupsErr) {
+                    console.error("Failed to refresh groups", groupsErr);
+                }
 
                 setCreateGroupForm(false);
 

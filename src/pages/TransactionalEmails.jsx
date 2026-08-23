@@ -121,6 +121,10 @@ const TransactionalEmails = () => {
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [btnDisabled, setBtnDisabled] = useState(false);
+    const [messageText, setMessageText] = useState("");
+    const [displayMessageSuccess, setDisplayMessageSuccess] = useState(false);
+    const [displayMessageError, setDisplayMessageError] = useState(false);
+    const [showMessageError, setShowMessageError] = useState(false);
     
     const summernoteRef = useRef();
     

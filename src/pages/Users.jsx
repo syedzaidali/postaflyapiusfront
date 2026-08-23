@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import apiRoutes from '../routes/api/apiRoutes';
 import AppLayout from '../components/Layouts/AppLayout';
 import { hasPermission } from '../utils/roleBasedAccess';
+import { authGetHeaders, prependRow, unwrapLastPage, unwrapPagedRows } from '../utils/listResponse';
 import {
     UserPlus,
     Search,
@@ -87,6 +88,8 @@ const Users = () => {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`,
         "Accept": "application/json",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
     };
 
     const resetUserForm = () => {
@@ -195,18 +198,20 @@ const Users = () => {
                 page,
                 per_page: perPage,
                 ...(search && { search }),
+                _ts: String(Date.now()),
             });
 
             const response = await fetch(`${apiRoutes.getAllUsers}?${queryParams}`, {
                 method: "GET",
-                headers: authHeaders,
+                headers: authGetHeaders(token),
+                cache: "no-store",
             });
 
             const result = await response.json();
 
             if (response.ok) {
-                setListAllUsers(result.data || []);
-                setTotalPages(result.pagination?.last_page || 1);
+                setListAllUsers(unwrapPagedRows(result));
+                setTotalPages(unwrapLastPage(result));
             } else {
                 setError(result.message || "Failed to load users.");
             }
@@ -219,13 +224,14 @@ const Users = () => {
 
     const fetchRoles = async () => {
         try {
-            const response = await fetch(apiRoutes.getRoles, {
+            const response = await fetch(`${apiRoutes.getRoles}?_ts=${Date.now()}`, {
                 method: "GET",
-                headers: authHeaders,
+                headers: authGetHeaders(token),
+                cache: "no-store",
             });
             const result = await response.json();
             if (response.ok) {
-                setRolesList(result.data || []);
+                setRolesList(unwrapPagedRows(result));
             }
         } catch (err) {
             console.error("Failed to fetch roles:", err);
@@ -234,9 +240,10 @@ const Users = () => {
 
     const fetchUserPermissions = async () => {
         try {
-            const response = await fetch(apiRoutes.getUserPermissions, {
+            const response = await fetch(`${apiRoutes.getUserPermissions}?_ts=${Date.now()}`, {
                 method: "GET",
-                headers: authHeaders,
+                headers: authGetHeaders(token),
+                cache: "no-store",
             });
 
             const result = await response.json();
@@ -286,7 +293,11 @@ const Users = () => {
 
             if (response.ok) {
                 setMessageText(userID ? "User updated successfully!" : "User created successfully!");
-                fetchUsers(currentPage, searchQuery);
+                if (!userID && result.user) {
+                    setListAllUsers((prev) => prependRow(prev, result.user));
+                    setActiveTab("users");
+                }
+                await fetchUsers(currentPage, searchQuery);
                 closeMenu();
             } else {
                 setError(result.message || Object.values(result.errors || {}).flat().join(' ') || "Unable to save user.");
@@ -319,8 +330,12 @@ const Users = () => {
 
             if (response.ok) {
                 setMessageText(roleID ? "Role updated successfully!" : "Role created successfully!");
-                fetchRoles();
-                fetchUserPermissions();
+                if (!roleID && result.data) {
+                    setRolesList((prev) => prependRow(prev, result.data));
+                    setActiveTab("roles");
+                }
+                await fetchRoles();
+                await fetchUserPermissions();
                 closeMenu();
             } else {
                 setError(result.message || Object.values(result.errors || {}).flat().join(' ') || "Unable to save role.");
@@ -355,7 +370,7 @@ const Users = () => {
             confirmPassword: "",
             role: user.custom_role_id || user.role || "admin",
             status: user.status || "active",
-            permissions: parsePermissions(user.custom_role?.permissions || user.permissions),
+            permissions: parsePermissions(user.permissions || user.custom_role?.permissions),
         });
         setUserID(user.id);
         setEditUserForm(true);
