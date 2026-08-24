@@ -7,6 +7,7 @@ import { database } from '../libs/firebase';
 import apiRoutes from '../routes/api/apiRoutes';
 import AppLayout from '../components/Layouts/AppLayout';
 import HtmlEditor from '../components/Editors/HtmlEditor';
+import { unwrapLastPage, unwrapPagedRows, prependRow, authGetHeaders } from '../utils/listResponse';
 import {
     UserPlus,
     Search,
@@ -246,7 +247,11 @@ const TransactionalEmails = () => {
         setShowCreateForm(true);
         setBurgerActive(true);
         document.body.classList.add("fixed-body");
-    }   
+        fetchProviders();
+        fetchTemplates();
+        fetchTransactionTemplates();
+        fetchThemes();
+    };   
 
     //Populate provider details into form
     const setSelectedProvider = (provider) => {
@@ -498,12 +503,10 @@ const TransactionalEmails = () => {
     //Fetch Providers
     const fetchProviders = async () => {
         try {
-            const response = await fetch(apiRoutes.getProviders, {
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
+            const response = await fetch(`${apiRoutes.getProviders}?per_page=100&_ts=${Date.now()}`, {
+                method: "GET",
+                cache: "no-store",
+                headers: authGetHeaders(token),
             });
 
             if (!response.ok) {
@@ -511,92 +514,92 @@ const TransactionalEmails = () => {
             }
 
             const result = await response.json();
-
-            setProviders(result.data.data || []);
+            setProviders(unwrapPagedRows(result));
         } catch (error) {
-            console.error("Failed to fetch groups", error);
+            console.error("Failed to fetch providers", error);
+            setProviders([]);
         }
     };
 
-    //Fetch Email Templates
+    //Fetch Email Templates (transactional / marketing email body templates)
     const fetchTemplates = async () => {
         try {    
             const type = 'transactional'; 
-            const url = `${apiRoutes.getAllTemplates}?type=${encodeURIComponent(type)}`;
-
-            const headers = {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-            };
+            const url = `${apiRoutes.getAllTemplates}?type=${encodeURIComponent(type)}&per_page=100&_ts=${Date.now()}`;
 
             const response = await fetch(url, {
                 method: "GET",
-                headers: headers
+                cache: "no-store",
+                headers: authGetHeaders(token),
             });
 
             const result = await response.json();
 
             if (response.ok && result.status) {
-                setTemplates(result.data.data);
+                setTemplates(unwrapPagedRows(result));
             } else {
                 console.error(result);
+                setTemplates([]);
             }
         } catch (error) {
-            console.error("Failed to fetch leads:", error);
+            console.error("Failed to fetch templates:", error);
+            setTemplates([]);
         }
     };
 
-    //Fetch Transaction Templates
+    //Fetch Transaction Templates (saved invoice/transaction setups — separate from email templates)
     const fetchTransactionTemplates = async () => {
         try {    
-            const url = `${apiRoutes.getTransactionEmailTemplate}`;
-
-            const headers = {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-            };
+            const url = `${apiRoutes.getTransactionEmailTemplate}?_ts=${Date.now()}`;
 
             const response = await fetch(url, {
                 method: "POST",
-                headers: headers
+                cache: "no-store",
+                headers: authGetHeaders(token),
             });
 
             const result = await response.json();
 
             if (response.ok && result.status) {
-                setTransactionTemplates(result.data);
+                const rows = Array.isArray(result.data)
+                    ? result.data
+                    : unwrapPagedRows(result);
+                setTransactionTemplates(rows || []);
             } else {
                 console.error(result);
+                setTransactionTemplates([]);
             }
         } catch (error) {
-            console.error("Failed to fetch leads:", error);
+            console.error("Failed to fetch transaction templates:", error);
+            setTransactionTemplates([]);
         }
     };
 
     //Fetch invoice Themes
     const fetchThemes = async () => {
         try {    
-            const url = `${apiRoutes.getAllInvoiceThemes}`;
-
-            const headers = {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-            };
+            const url = `${apiRoutes.getAllInvoiceThemes}?_ts=${Date.now()}`;
 
             const response = await fetch(url, {
                 method: "GET",
-                headers: headers
+                cache: "no-store",
+                headers: authGetHeaders(token),
             });
 
             const result = await response.json();
 
             if (response.ok && result.status) {
-                setThemes(result.data);
+                const rows = Array.isArray(result.data)
+                    ? result.data
+                    : unwrapPagedRows(result);
+                setThemes(rows || []);
             } else {
                 console.error(result);
+                setThemes([]);
             }
         } catch (error) {
-            console.error("Failed to fetch leads:", error);
+            console.error("Failed to fetch themes:", error);
+            setThemes([]);
         }
     };
 
@@ -741,6 +744,12 @@ const TransactionalEmails = () => {
                 
                 setCreateProviderForm(false);
                 setShowCreateForm(true);
+                const created = response.data?.data;
+                if (created?.id) {
+                    setProviders((prev) => prependRow(prev, created));
+                    setSelectedProvider(created);
+                }
+                await fetchProviders();
             } else {
                 setDisplayMessageError(true);
                 setMessageText(response.message || "Failed to process provider.");
@@ -1149,7 +1158,7 @@ const TransactionalEmails = () => {
                                         <td colSpan="9" className="text-center">Loading...</td>
                                     </tr>
                                 ) : transactionEmails.length > 0 ? (
-                                    transactionEmails.map((email) => (
+                                    (transactionEmails || []).map((email) => (
                                         <tr key={email.id}>
                                             <td>
                                                 <label className="check-box">
@@ -1272,7 +1281,7 @@ const TransactionalEmails = () => {
                             <div className="col-md-12 full-loader">
                                 {selectThemeForm &&  (
                                     <div className="templates-preview">
-                                        {themes.map((theme, index) => (
+                                        {(themes || []).map((theme, index) => (
                                             <div className="template-selector" key={index}>
                                                 <a
                                                     href="#"
@@ -1343,7 +1352,7 @@ const TransactionalEmails = () => {
                                                                 onChange={handleTemplateSelect}
                                                             >
                                                                 <option value="">Select Template</option>
-                                                                {transactionTemplates.map((template) => (
+                                                                {(transactionTemplates || []).map((template) => (
                                                                     <option key={template.id} value={template.id}>
                                                                         {template.title}
                                                                     </option>
@@ -1409,7 +1418,7 @@ const TransactionalEmails = () => {
                                                                     }}
                                                                 >
                                                                     <option value="">Select Provider</option>
-                                                                    {providers
+                                                                    {(providers || [])
                                                                     .filter((provider) => provider && provider.id && provider.title)
                                                                     .map((provider) => (
                                                                         <option key={provider.id} value={provider.id}>
@@ -1742,7 +1751,7 @@ const TransactionalEmails = () => {
                                                                         }}                                                                    
                                                                     >
                                                                     <option value="">Select Email Template</option>     
-                                                                    {templates.map((template) => (
+                                                                    {(templates || []).map((template) => (
                                                                         <option key={template.id} value={template.id}>
                                                                         {template.title}
                                                                         </option>

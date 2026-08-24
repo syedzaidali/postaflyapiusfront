@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 import apiRoutes from '../routes/api/apiRoutes';
 import AppLayout from '../components/Layouts/AppLayout';
+import { unwrapLastPage, unwrapPagedRows, prependRow, authGetHeaders } from '../utils/listResponse';
 import { Tooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
 import {
@@ -293,15 +294,19 @@ const SendersProfile = () => {
      * Api calls 
      */
      //Fetch Groups Data
-    const fetchProviders = async () => {
+    const fetchProviders = async (page = currentPage, search = searchQuery) => {
         setLoading(true);
         try {
-            const response = await fetch(apiRoutes.getProviders, {
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
+            const query = new URLSearchParams({
+                page: String(page || 1),
+                per_page: String(perPage || 15),
+                _ts: String(Date.now()),
+                ...(search ? { search } : {}),
+            });
+            const response = await fetch(`${apiRoutes.getProviders}?${query}`, {
+                method: "GET",
+                cache: "no-store",
+                headers: authGetHeaders(token),
             });
 
             if (!response.ok) {
@@ -309,10 +314,11 @@ const SendersProfile = () => {
             }
 
             const result = await response.json();
-
-            setProviders(result.data.data || []);
+            setProviders(unwrapPagedRows(result));
+            setTotalPages(unwrapLastPage(result));
         } catch (error) {
-            console.error("Failed to fetch groups", error);
+            console.error("Failed to fetch providers", error);
+            setProviders([]);
         } finally {
             setLoading(false);
         }
@@ -477,8 +483,8 @@ const SendersProfile = () => {
                                     <tr>
                                         <td colSpan="8" className="text-center">Loading...</td>
                                     </tr>
-                                ) : providers.length > 0 ? (
-                                    providers.map((provider) => (
+                                  ) : providers.length > 0 ? (
+                                    (providers || []).map((provider) => (
                                         <tr key={provider.id}>
                                             <td>
                                                 <label className="check-box">
