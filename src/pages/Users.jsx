@@ -282,6 +282,8 @@ const Users = () => {
             delete payload.confirmPassword;
         }
 
+        let savedOk = false;
+
         try {
             const response = await fetch(apiRoutes.createUser, {
                 method: "POST",
@@ -291,19 +293,28 @@ const Users = () => {
 
             const result = await response.json();
 
-            if (response.ok) {
-                setMessageText(userID ? "User updated successfully!" : "User created successfully!");
+            if (response.ok && result.status !== false) {
+                savedOk = true;
+                setMessageText(result.message || (userID ? "User updated successfully!" : "User created successfully!"));
                 if (!userID && result.user) {
                     setListAllUsers((prev) => prependRow(prev, result.user));
                     setActiveTab("users");
                 }
-                await fetchUsers(currentPage, searchQuery);
+                try {
+                    await fetchUsers(1, searchQuery);
+                    setCurrentPage(1);
+                } catch (refreshErr) {
+                    console.error("User saved but list refresh failed:", refreshErr);
+                }
                 closeMenu();
             } else {
                 setError(result.message || Object.values(result.errors || {}).flat().join(' ') || "Unable to save user.");
             }
         } catch (err) {
-            setError("An unexpected error occurred. Please try again.");
+            console.error("Create user failed:", err);
+            if (!savedOk) {
+                setError("An unexpected error occurred. Please try again.");
+            }
         } finally {
             setReqLoader(false);
         }

@@ -142,6 +142,7 @@ const Leads = () => {
         setLeadCreateForm(true);
         setBurgerActive(true);
         document.body.classList.add("fixed-body");
+        fetchGroupsList();
     };
 
     //Importing leads form
@@ -149,6 +150,7 @@ const Leads = () => {
         setImportLeadForm(true);
         setBurgerActive(true);
         document.body.classList.add("fixed-body");
+        fetchGroupsList();
     };
 
     //Creating new group form inline
@@ -237,24 +239,35 @@ const Leads = () => {
     }, [currentPage, searchQuery]);
 
     //Fetch Groups Data
-    useEffect(() => {
-        const fetchGroups = async () => {
-            try {
-                const response = await fetch(apiRoutes.getGroups, {
-                    headers: {
-                        "Authorization": `Bearer ${token}`,
-                    },
-                });
-    
-                const result = await response.json();
+    const normalizeGroup = (group) => ({
+        id: group?.id || group?.ID || "",
+        title: group?.title || group?.name || "",
+        name: group?.title || group?.name || "",
+        status: Number(group?.status ?? 1),
+        leadsCount: group?.leadsCount ?? group?.leads_count ?? 0,
+    });
 
-                setGroups(result.groups || []);
-            } catch (error) {
-                console.error("Failed to fetch groups", error);
-            }
-        };
-    
-        fetchGroups();
+    const fetchGroupsList = async () => {
+        try {
+            const response = await fetch(`${apiRoutes.getGroups}?_ts=${Date.now()}`, {
+                method: "GET",
+                cache: "no-store",
+                headers: authGetHeaders(token),
+            });
+
+            const result = await response.json();
+            const rows = (result.groups || []).map(normalizeGroup).filter((g) => g.id && g.title);
+            setGroups(rows);
+            return rows;
+        } catch (error) {
+            console.error("Failed to fetch groups", error);
+            setGroups([]);
+            return [];
+        }
+    };
+
+    useEffect(() => {
+        fetchGroupsList();
     }, []);
 
     const pollImportStatus = useCallback(() => {
@@ -477,61 +490,41 @@ const Leads = () => {
                 setGroupName("");
                 setStatus(1);
 
-                const newGroupRaw = result.data || result.group || {};
-                const newGroup = {
-                    id: newGroupRaw.id || newGroupRaw.ID,
-                    title: newGroupRaw.title || newGroupRaw.name || groupName,
-                    name: newGroupRaw.title || newGroupRaw.name || groupName,
-                    status: Number(newGroupRaw.status ?? 1),
-                    leadsCount: 0,
-                };
-
-                setGroups((prevGroups) => {
-                    if (!newGroup.id) return prevGroups;
-                    return [newGroup, ...prevGroups.filter((g) => (g.id || g.ID) !== newGroup.id)];
+                const newGroup = normalizeGroup({
+                    ...(result.data || result.group || {}),
+                    title: (result.data || result.group || {}).title
+                        || (result.data || result.group || {}).name
+                        || groupName,
                 });
 
-                // Refresh groups list from server so dropdown/table stay in sync
-                try {
-                    const groupsRes = await fetch(`${apiRoutes.getGroups}?_ts=${Date.now()}`, {
-                        headers: {
-                            "Authorization": `Bearer ${token}`,
-                            "Accept": "application/json",
-                            "Cache-Control": "no-cache",
-                        },
-                        cache: "no-store",
-                    });
-                    if (groupsRes.ok) {
-                        const groupsJson = await groupsRes.json();
-                        setGroups((groupsJson.groups || []).map((g) => ({
-                            id: g.id || g.ID,
-                            title: g.title || g.name || "",
-                            name: g.title || g.name || "",
-                            status: Number(g.status ?? 1),
-                            leadsCount: g.leadsCount ?? g.leads_count ?? 0,
-                        })));
-                    }
-                } catch (groupsErr) {
-                    console.error("Failed to refresh groups", groupsErr);
+                if (newGroup.id) {
+                    setGroups((prevGroups) => [
+                        newGroup,
+                        ...prevGroups.filter((g) => (g.id || g.ID) !== newGroup.id),
+                    ]);
                 }
 
+                await fetchGroupsList();
+
                 setCreateGroupForm(false);
+                setGroupID("");
 
                 if (initPath === 'import') {
                     setImportFormData((prevData) => ({
                         ...prevData,
-                        group_id: newGroup.id,
+                        group_id: newGroup.id || "",
                     }));
                     setImportLeadForm(true);
+                    setLeadCreateForm(false);
                 } else {
                     setFormData((prevData) => ({
                         ...prevData,
-                        group_id: newGroup.id,
+                        group_id: newGroup.id || "",
                     }));
                     setLeadCreateForm(true);
+                    setImportLeadForm(false);
                 }
-
-                closeMenu();
+                // Keep the side panel open so the new group stays selected in Create Lead
             } else {
                 setDisplayMessageError(true);
                 setMessageText(result.message || "Failed to create group.");
@@ -896,10 +889,10 @@ const Leads = () => {
                                                             >
                                                                 <option value="">Select Group</option>
                                                                 {groups
-                                                                .filter((group) => group && group.id && group.title)
+                                                                .filter((group) => group && (group.id || group.ID) && (group.title || group.name))
                                                                 .map((group) => (
-                                                                    <option key={group.id} value={group.id}>
-                                                                    {group.title}
+                                                                    <option key={group.id || group.ID} value={group.id || group.ID}>
+                                                                    {group.title || group.name}
                                                                     </option>
                                                                 ))}
                                                             </select>
@@ -970,10 +963,10 @@ const Leads = () => {
                                                             >
                                                                 <option value="">Select Group</option>
                                                                 {groups
-                                                                    .filter((group) => group && group.id && group.title)
+                                                                    .filter((group) => group && (group.id || group.ID) && (group.title || group.name))
                                                                     .map((group) => (
-                                                                    <option key={group.id} value={group.id}>
-                                                                    {group.title}
+                                                                    <option key={group.id || group.ID} value={group.id || group.ID}>
+                                                                    {group.title || group.name}
                                                                     </option>
                                                                 ))}
                                                             </select>

@@ -93,28 +93,6 @@ const Users = () => {
         }
     }, [burgerActive]);
 
-    useEffect(() => {
-        if (displayMessageError) {
-            const timer = setTimeout(() => {
-                setDisplayMessageError(true);
-            }, 500); 
-
-            return () => clearTimeout(timer);
-        } else {
-            setDisplayMessageError(false); 
-        }
-
-        if (displayMessageSuccess) {
-            const timer = setTimeout(() => {
-                setDisplayMessageSuccess(true);
-            }, 500); 
-
-            return () => clearTimeout(timer);
-        } else {
-            setDisplayMessageSuccess(false); 
-        }
-    }, [displayMessageError, displayMessageSuccess]);
-
     //Initializing create user form button
     const createUserFormDisplay = () => {
         setName("");
@@ -314,7 +292,7 @@ const Users = () => {
         
         const body = {
             name,
-            username,
+            username: username || null,
             email,
             account_type: accountType,
             invoice_option: accountType === "transaction_email" ? invoiceOption : null,
@@ -325,6 +303,8 @@ const Users = () => {
                 confirmPassword: passwordConfirm,
             } : {}),
         };
+
+        let savedOk = false;
         
         try {
             const response = await fetch(url, {
@@ -335,7 +315,8 @@ const Users = () => {
 
             const result = await response.json();
 
-            if (response.ok) {
+            if (response.ok && result.status !== false) {
+                savedOk = true;
                 setDisplayMessageSuccess(true);
                 setDisplayMessageError(false);
                 setMessageText(result.message || (userID ? "User updated successfully!" : "User created successfully!"));
@@ -345,8 +326,12 @@ const Users = () => {
                     setMessageText(""); 
                 }, 8000);
 
-                setCurrentPage(1);
-                await fetchUsers(1);
+                try {
+                    setCurrentPage(1);
+                    await fetchUsers(1);
+                } catch (refreshErr) {
+                    console.error("User saved but list refresh failed:", refreshErr);
+                }
                 closeMenu();
             } else {          
                 const validationMessage = result.errors
@@ -363,11 +348,17 @@ const Users = () => {
                 }, 8000);
             }
         } catch (error) {
-            setMessageText("An unexpected error occurred. Please try again.");
+            console.error("Admin create user failed:", error);
+            if (!savedOk) {
+                setDisplayMessageError(true);
+                setDisplayMessageSuccess(false);
+                setMessageText("An unexpected error occurred. Please try again.");
 
-            setTimeout(() => {
-                setMessageText(""); 
-            }, 8000);
+                setTimeout(() => {
+                    setDisplayMessageError(false);
+                    setMessageText(""); 
+                }, 8000);
+            }
         } finally {
             setReqLoader(false);
         }
