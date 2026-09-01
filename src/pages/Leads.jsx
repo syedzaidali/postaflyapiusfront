@@ -31,7 +31,7 @@ const Leads = () => {
     }
 
     const [importFormData, setImportFormData] = useState({
-        file: null,
+        import_csv: null,
         group_id: "",
     });
 
@@ -271,7 +271,9 @@ const Leads = () => {
     }, []);
 
     const pollImportStatus = useCallback(() => {
-        const interval = setInterval(async () => {
+        let interval;
+
+        const pollOnce = async () => {
             try {
                 const response = await fetch(apiRoutes.importLeadsStatus, {
                     headers: {
@@ -279,44 +281,51 @@ const Leads = () => {
                     },
                     method: "POST",
                 });
-    
+
+                if (response.status === 404) {
+                    return;
+                }
+
                 const res = await response.json();
-                
+
                 if (res.status === 'completed') {
                     clearInterval(interval);
                     setImportStatus('success');
+                    alert(`Import completed. ${res.imported_rows ?? 0} imported, ${res.failed_rows ?? 0} failed.`);
                     fetchLeads(1, searchQuery);
                     setIsPolling(false);
                 } else if (res.status === 'failed') {
-                    clearInterval(interval); 
+                    clearInterval(interval);
+                    setImportStatus('error');
+                    alert('Import failed. Please check your CSV and try again.');
                     setIsPolling(false);
                 }
             } catch (err) {
                 console.log('Error : ' + JSON.stringify(err));
                 clearInterval(interval);
                 setImportStatus('error');
+                alert('Import status check failed.');
                 setIsPolling(false);
             }
-        }, 5000); 
-      
+        };
+
+        pollOnce();
+        interval = setInterval(pollOnce, 3000);
+
         return () => clearInterval(interval);
     }, [fetchLeads, searchQuery, token]);
-    
-    useEffect(() => {
-        if (importStatus === 'processing' && !isPolling) {
-            setIsPolling(true);
-            const cleanup = pollImportStatus();
-        
-            return () => {
-                cleanup();
-                setIsPolling(false);
-            };
-        }
-      
-        if (importStatus !== 'processing' && isPolling) {
-          setIsPolling(false);
-        }
-    }, [importStatus, isPolling, pollImportStatus]);
+
+    const downloadSampleCsv = (e) => {
+        e.preventDefault();
+        const csv = 'first_name,last_name,company,email,phone,country\nJohn,Doe,Acme Corp,john@example.com,1234567890,USA\n';
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'leads_sample.csv';
+        link.click();
+        URL.revokeObjectURL(url);
+    };
     
     //Create / Update Lead
     const processCreateLead = async (e) => {
@@ -380,6 +389,7 @@ const Leads = () => {
         setReqLoader(true);
     
         if (!importFormData.import_csv || !importFormData.group_id) {
+            alert('Please select a CSV file and a group before importing.');
             setReqLoader(false);
             return;
         }
@@ -397,23 +407,34 @@ const Leads = () => {
             });
     
             if (response.data.status) {
-                setImportStatus('processing');
-
-                setIsPolling(true);
+                const data = response.data;
 
                 closeMenu();
-
                 setImportFormData({ group_id: '', import_csv: null });
+
+                if (data.import_status === 'completed') {
+                    setImportStatus('success');
+                    alert(`Import completed. ${data.imported_rows ?? 0} imported, ${data.failed_rows ?? 0} failed.`);
+                    fetchLeads(1, searchQuery);
+                } else {
+                    setImportStatus('processing');
+                    setIsPolling(true);
+                }
             } else {
                 setImportStatus('error');
-                console.log('Import failed.');
+                alert(response.data.message || 'Import failed.');
             }
         } catch (error) {
-            if (error.response && error.response.data) {
-                setErrors(error.response.data.message || 'Import error occurred.');
-            } else {
-                setErrors('Network or server error.');
+            setImportStatus('error');
+            const apiMessage = error.response?.data?.message;
+            const validationErrors = error.response?.data?.errors;
+            let message = apiMessage || 'Import error occurred.';
+
+            if (!apiMessage && validationErrors && typeof validationErrors === 'object') {
+                message = Object.values(validationErrors).flat().join(', ');
             }
+
+            alert(message);
         } finally {
             setReqLoader(false);
         }
@@ -663,6 +684,16 @@ const Leads = () => {
                                             style={{ width: "100%" }}
                                         ></div>
                                     </div>
+                                </div>
+                            )}
+                            {importStatus === 'success' && (
+                                <div className="alert alert-success mt-3 mb-0">
+                                    Leads imported successfully.
+                                </div>
+                            )}
+                            {importStatus === 'error' && (
+                                <div className="alert alert-danger mt-3 mb-0">
+                                    Import failed. Please check your CSV file and try again.
                                 </div>
                             )}
                             <div className="table-responsive mt-4">
@@ -932,7 +963,7 @@ const Leads = () => {
                                                     <div className="col-md-12">
                                                         <p className="text-secondary">
                                                             Download Sample File
-                                                            <a href="#" className="btn btn-primary b-r-22 mg-s-10">
+                                                            <a href="#" onClick={downloadSampleCsv} className="btn btn-primary b-r-22 mg-s-10">
                                                                 <Download /> Download
                                                             </a>
                                                         </p>
