@@ -33,6 +33,8 @@ export const moduleAllowed = (module, action = "view") => {
     return isAllowed(permissions?.[module]?.[action]);
 };
 
+export const canScheduleCampaign = () => moduleAllowed("campaigns", "schedule");
+
 export const hasPermission = (requiredPermissions = []) => {
     if (isTenantAdmin()) {
         return true;

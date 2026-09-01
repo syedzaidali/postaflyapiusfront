@@ -4,6 +4,7 @@ import axios from 'axios';
 import apiRoutes from '../routes/api/apiRoutes';
 import AppLayout from '../components/Layouts/AppLayout';
 import { unwrapLastPage, unwrapPagedRows, prependRow, authGetHeaders } from '../utils/listResponse';
+import { moduleAllowed, canScheduleCampaign } from '../utils/roleBasedAccess';
 import {
     UserPlus,
     Upload,
@@ -29,8 +30,22 @@ const Campaigns = () => {
         end_date: "",
         group_id: "",
         template_id: "",
-        status: ""
+        status: "",
+        repeat_type: "none",
+        repeat_day: "",
+        schedule_time: "",
     }
+
+    const canSchedule = canScheduleCampaign();
+    const weekDays = [
+        { value: "0", label: "Sunday" },
+        { value: "1", label: "Monday" },
+        { value: "2", label: "Tuesday" },
+        { value: "3", label: "Wednesday" },
+        { value: "4", label: "Thursday" },
+        { value: "5", label: "Friday" },
+        { value: "6", label: "Saturday" },
+    ];
     
     //Initialize All Required constants
     const [addActiveClass, setAddActiveClass] = useState(false);
@@ -58,6 +73,7 @@ const Campaigns = () => {
     const [senderCheckLoading, setSenderCheckLoading] = useState(false);
     const [senderActive, setSenderActive] = useState(null);
     const [senderCheckMessage, setSenderCheckMessage] = useState("");
+    const [fetchError, setFetchError] = useState('');
     const senderCheckTimer = useRef(null);
     
     /*
@@ -79,7 +95,10 @@ const Campaigns = () => {
                 end_date: "",
                 group_id: "",
                 template_id: "",
-                status: ""
+                status: "",
+                repeat_type: "none",
+                repeat_day: "",
+                schedule_time: "",
             });
             setSenderActive(null);
             setSenderCheckMessage("");
@@ -124,6 +143,7 @@ const Campaigns = () => {
     const fetchCampaigns = async (page = 1, search = '') => {
         setLoading(true);
         setSelectedCampaigns([]);
+        setFetchError('');
 
         try {
             const queryParams = new URLSearchParams({
@@ -150,9 +170,14 @@ const Campaigns = () => {
                 });
                 setTotalPages(unwrapLastPage(result));
             } else {
+                const message = result?.message || `Failed to load campaigns (${response.status}).`;
+                setFetchError(message);
+                setCampaigns([]);
                 console.error(result);
             }
         } catch (error) {
+            setFetchError('Failed to load campaigns. Please refresh the page.');
+            setCampaigns([]);
             console.error("Failed to fetch campaigns:", error);
         } finally {
             setLoading(false);
@@ -287,6 +312,21 @@ const Campaigns = () => {
             return;
         }
 
+        if (formData.repeat_type !== "none" && !canSchedule) {
+            alert("You do not have permission to schedule repeating campaigns.");
+            return;
+        }
+
+        if (formData.start_date && !canSchedule) {
+            alert("You do not have permission to schedule campaigns.");
+            return;
+        }
+
+        if (formData.repeat_type !== "none" && !formData.schedule_time) {
+            alert("Please select a send time for repeating campaigns.");
+            return;
+        }
+
         setBtnLoader(true);
         setBtnDisabled(true);
 
@@ -296,10 +336,17 @@ const Campaigns = () => {
         };
 
         try {
+            const payload = {
+                ...formData,
+                start_date: formData.start_date || null,
+                repeat_day: formData.repeat_day === "" ? null : Number(formData.repeat_day),
+                schedule_time: formData.schedule_time || null,
+            };
+
             const response = await fetch(apiRoutes.createCampaign, {
                 method: "POST",
                 headers: headers,
-                body: JSON.stringify(formData),
+                body: JSON.stringify(payload),
             });
     
             const result = await response.json();
@@ -340,10 +387,9 @@ const Campaigns = () => {
         }
     }
 
-    //Delete multiple Leads
     const handleCheckboxChange = (id, isChecked) => {
-        setSelectedLeads((prev) => 
-            isChecked ? [...prev, id] : prev.filter((leadId) => leadId !== id)
+        setSelectedCampaigns((prev) =>
+            isChecked ? [...prev, id] : prev.filter((campaignId) => campaignId !== id)
         );
     };
 
@@ -394,6 +440,11 @@ const Campaigns = () => {
                         </div>
 
                         <div className="card-body">
+                            {fetchError && (
+                                <div className="alert alert-danger mt-2" role="alert">
+                                    {fetchError}
+                                </div>
+                            )}
                             {showSuccessMessage && (
                                 <div className="badge text-light-success mt-2 pt-3 pb-3 pa-s-20 pa-e-20" role="alert">
                                     <CheckCircle size='20' /> {successMessage}
@@ -410,7 +461,7 @@ const Campaigns = () => {
                                             <th scope="col">Assigned Group</th>
                                             <th scope="col">Email Template</th>
                                             <th scope="col">Start Date</th>
-                                            <th scope="col">End Date</th>
+                                            <th scope="col">Repeat</th>
                                             <th scope="col">Status</th>
                                             <th scope="col">Action</th>
                                         </tr>
@@ -442,20 +493,13 @@ const Campaigns = () => {
                                                 </td>
                                                 <td>{campaign.template?.title || '—'}</td>
                                                 <td>{campaign.start_date || '—'}</td>
-                                                <td>{campaign.end_date || '—'}</td>
+                                                <td>{campaign.repeat_label || 'One time'}</td>
                                                 <td>
-                                                    <span className={`badge ${campaign.status === 'active' ? 'text-light-success' : 'text-light-secondary'}`}>
+                                                    <span className={`badge ${['running', 'completed'].includes(campaign.status) ? 'text-light-success' : campaign.status === 'scheduled' ? 'text-light-warning' : 'text-light-secondary'}`}>
                                                         {campaign.status || '—'}
                                                     </span>
                                                 </td>
-                                                <td>
-                                                    <button type="button" onClick={() => handleEditCampaign(campaign)} className="btn btn-light-success icon-btn b-r-4">
-                                                        <Edit size={12} width={16} className="text-success" />
-                                                    </button>
-                                                    <button type="button" onClick={() => deleteCampaign(campaign.id)} className="btn btn-light-danger icon-btn b-r-4 ms-2">
-                                                        <Trash size={12} width={16} />
-                                                    </button>
-                                                </td>
+                                                <td>—</td>
                                             </tr>
                                         ))
                                     ) : (
@@ -465,18 +509,6 @@ const Campaigns = () => {
                                     )}
                                     </tbody>
                                 </table>
-
-                                {selectedCampaigns.length > 0 && (
-                                    <button type="button" className="btn btn-pinterest" onClick={deleteSelectedLeads}>
-                                        <span
-                                            className="loader spinner-border spinner-border-sm me-2"
-                                            style={{ display: 'none' }}
-                                            role="status"
-                                            aria-hidden="true"
-                                        ></span>
-                                        <span className="loaderIcon"><Trash size={12} width={16} /></span> Delete Leads
-                                    </button>
-                                )}
 
                                 <div className="mt-3">
                                     <ul className="pagination app-pagination">
@@ -635,17 +667,105 @@ const Campaigns = () => {
 
                                                     <div className="col-md-6">
                                                         <div className="mb-3">
-                                                            <label className="form-label">Start Date</label>
+                                                            <label className="form-label">Schedule Start</label>
                                                             <input
                                                                 className="form-control"
                                                                 name="start_date"
                                                                 type="datetime-local"
                                                                 value={formData.start_date}
                                                                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                                                                disabled={!canSchedule}
                                                             />
-                                                            <small className="text-muted">Leave empty to start immediately</small>
+                                                            <small className="text-muted">
+                                                                {canSchedule
+                                                                    ? "Leave empty to start at the next repeat time or immediately."
+                                                                    : "Schedule permission required to set a future start."}
+                                                            </small>
                                                         </div>
                                                     </div>
+
+                                                    <div className="col-md-6">
+                                                        <div className="mb-3">
+                                                            <label className="form-label">Repeat</label>
+                                                            <select
+                                                                className="form-control"
+                                                                name="repeat_type"
+                                                                value={formData.repeat_type}
+                                                                onChange={(e) => setFormData({
+                                                                    ...formData,
+                                                                    repeat_type: e.target.value,
+                                                                    repeat_day: "",
+                                                                })}
+                                                                disabled={!canSchedule}
+                                                            >
+                                                                <option value="none">Does not repeat</option>
+                                                                <option value="daily">Daily</option>
+                                                                <option value="weekly">Weekly</option>
+                                                                <option value="monthly">Monthly</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    {formData.repeat_type !== "none" && (
+                                                        <>
+                                                            <div className="col-md-6">
+                                                                <div className="mb-3">
+                                                                    <label className="form-label">Send Time</label>
+                                                                    <input
+                                                                        className="form-control"
+                                                                        name="schedule_time"
+                                                                        type="time"
+                                                                        value={formData.schedule_time}
+                                                                        onChange={(e) => setFormData({ ...formData, schedule_time: e.target.value })}
+                                                                        required
+                                                                        disabled={!canSchedule}
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            {formData.repeat_type === "weekly" && (
+                                                                <div className="col-md-6">
+                                                                    <div className="mb-3">
+                                                                        <label className="form-label">Day of Week</label>
+                                                                        <select
+                                                                            className="form-control"
+                                                                            name="repeat_day"
+                                                                            value={formData.repeat_day}
+                                                                            onChange={(e) => setFormData({ ...formData, repeat_day: e.target.value })}
+                                                                            required
+                                                                            disabled={!canSchedule}
+                                                                        >
+                                                                            <option value="">Select day</option>
+                                                                            {weekDays.map((day) => (
+                                                                                <option key={day.value} value={day.value}>{day.label}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {formData.repeat_type === "monthly" && (
+                                                                <div className="col-md-6">
+                                                                    <div className="mb-3">
+                                                                        <label className="form-label">Day of Month</label>
+                                                                        <select
+                                                                            className="form-control"
+                                                                            name="repeat_day"
+                                                                            value={formData.repeat_day}
+                                                                            onChange={(e) => setFormData({ ...formData, repeat_day: e.target.value })}
+                                                                            required
+                                                                            disabled={!canSchedule}
+                                                                        >
+                                                                            <option value="">Select day</option>
+                                                                            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                                                                <option key={day} value={day}>{day}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -655,7 +775,11 @@ const Campaigns = () => {
                                                     className="btn btn-primary b-r-22"
                                                     disabled={btnDisabled || senderActive !== true || senderCheckLoading}
                                                 >
-                                                    Create Campaign
+                                                    {formData.repeat_type === "none" && !formData.start_date
+                                                        ? "Start Campaign Now"
+                                                        : formData.repeat_type === "none"
+                                                        ? "Schedule Campaign"
+                                                        : "Schedule Repeating Campaign"}
                                                 </button>
 
                                                 {btnLoader && (
